@@ -25,6 +25,10 @@ def prepare_credit_note(payload, request_id=None):
 	try:
 		sales_invoice = get_sales_invoice(cstr(refund["order_id"]))
 		if sales_invoice:
+			frappe.log_error("Shopify issued a refund to a sales invoice",
+					 f"Sales invoice: {sales_invoice.as_dict()}",
+					 "Sales Invoice",
+					 f"{sales_invoice.name}")
 			make_credit_note(refund, setting, sales_invoice)
 			create_shopify_log(status="Success")
 		else:
