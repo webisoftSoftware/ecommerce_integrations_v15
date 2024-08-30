@@ -117,10 +117,54 @@ def is_synced(product):
 
 
 @frappe.whitelist()
+def import_selected_products(products):
+	frappe.enqueue(queue_sync_selected_products, products=products, queue="long",
+				   job_name="shopify.job.sync.selected.products",
+				   key="shopify.key.sync.selected.products")
+
+
+@frappe.whitelist()
 def import_all_products():
 	frappe.enqueue(
 		queue_sync_all_products, queue="long", job_name=SYNC_JOB_NAME, key=REALTIME_KEY,
 	)
+
+
+def queue_sync_selected_products(_args, **kwargs):
+	start_time = process_time()
+
+	publish("Syncing selected products...")
+
+	_sync = True
+	products = kwargs.get("products", [])
+	savepoint = "shopify_product_sync"
+	while _sync:
+		for product in products:
+			try:
+				publish(f"Syncing product {product}", br=False)
+				frappe.db.savepoint(savepoint)
+				if is_synced(product):
+					publish(f"Product {product} already synced. Skipping...")
+					continue
+
+				shopify_product = ShopifyProduct(product)
+				shopify_product.sync_product()
+
+				publish(f"✅ Synced Product {product}", synced=True)
+
+			except UniqueValidationError as e:
+				publish(f"❌ Error Syncing Product {product} : {str(e)}", error=True)
+				frappe.db.rollback(save_point=savepoint)
+				continue
+
+			except Exception as e:
+				publish(f"❌ Error Syncing Product {product} : {str(e)}", error=True)
+				frappe.db.rollback(save_point=savepoint)
+				continue
+
+	end_time = process_time()
+	publish(f"🎉 Done in {end_time - start_time}s", done=True)
+	return True
 
 
 def queue_sync_all_products(*args, **kwargs):
