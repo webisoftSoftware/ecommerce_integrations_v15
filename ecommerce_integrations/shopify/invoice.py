@@ -67,6 +67,11 @@ def make_payament_entry_against_sales_invoice(doc, setting, posting_date=None):
 	from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 
 	payment_entry = get_payment_entry(doc.doctype, doc.name, bank_account=setting.cash_bank_account)
+	if payment_entry:
+		frappe.log_error("Making a payment entry against a Shopify invoice",
+						 f"Payment Entry: \n\n{payment_entry.as_dict()}\n\n",
+						 "Payment Entry",
+						 f"{payment_entry.name}")
 	payment_entry.flags.ignore_mandatory = True
 	payment_entry.reference_no = doc.name
 	payment_entry.posting_date = posting_date or nowdate()

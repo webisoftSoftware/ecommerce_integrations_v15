@@ -6,7 +6,7 @@ MODULE_NAME = "shopify"
 SETTING_DOCTYPE = "Shopify Setting"
 OLD_SETTINGS_DOCTYPE = "Shopify Settings"
 
-API_VERSION = "2024-01"
+API_VERSION = "2023-10"
 
 WEBHOOK_EVENTS = [
 	"orders/create",
@@ -14,6 +14,7 @@ WEBHOOK_EVENTS = [
 	"orders/fulfilled",
 	"orders/cancelled",
 	"orders/partially_fulfilled",
+	"refunds/create",
 ]
 
 EVENT_MAPPER = {
@@ -22,6 +23,7 @@ EVENT_MAPPER = {
 	"orders/fulfilled": "ecommerce_integrations.shopify.fulfillment.prepare_delivery_note",
 	"orders/cancelled": "ecommerce_integrations.shopify.order.cancel_order",
 	"orders/partially_fulfilled": "ecommerce_integrations.shopify.fulfillment.prepare_delivery_note",
+	"refunds/create": "ecommerce_integrations.shopify.refund.prepare_credit_note"
 }
 
 SHOPIFY_VARIANTS_ATTR_LIST = ["option1", "option2", "option3"]
