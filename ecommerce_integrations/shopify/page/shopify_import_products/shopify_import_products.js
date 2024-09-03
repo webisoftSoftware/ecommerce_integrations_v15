@@ -408,7 +408,8 @@ shopify.ProductImporter = class {
 					'shopify_import_products.import_selected_products',
 				args: {
 					"products": this.selectedRows
-				}
+				},
+				freeze: true
 			})
 		}
 
