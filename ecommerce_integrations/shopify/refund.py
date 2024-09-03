@@ -136,7 +136,7 @@ def _handle_partial_returns(credit_note, returned_items: List[str], sales_invoic
 	for item in credit_note.items:
 		item.qty = -1 * returned_items[item.item_code]["qty"]
 		item.amount = -1.0 * float(returned_items[item.item_code]["price"])
-		item.rate = float(returned_items[item.item_code]["rate"])
+		item.rate = float(returned_items[item.item_code]["rate"]) / (-item.qty)
 
 	returned_qty_map = defaultdict(float)
 	for item in credit_note.items:
