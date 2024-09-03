@@ -21,13 +21,13 @@ shopify.ProductImporter = class {
 		this.selectedRows = new Set();
 		this.syncRunning = false;
 		this.allRowCheckBoxStates = new Map();
+		this.productCount = 0;
 
 	}
 
 	init() {
 		frappe.run_serially([
 			() => this.addMarkup(),
-			() => this.fetchProductCount(),
 			() => this.addTable(),
 			() => this.checkSyncStatus(),
 			() => this.listen(),
@@ -47,26 +47,12 @@ shopify.ProductImporter = class {
 
 		const _markup = $(`
             <div class="row w-100 d-flex justify-content-center align-items-stretch flex-column overflow: auto m-auto">
-                <div class="col-12 d-flex flex-row align-items-stretch m-auto justify-content-center">
+                <div class="col-12" id="sync-details" style="display: none !important">
                     <div class="w-auto">
                         <div class="card d-flex border-0 shadow-sm p-3 mb-3 rounded-sm" style="background-color: var(--card-bg)">
                             <h5 class="border-bottom pb-2">Synchronization Details</h5>
                             <div id="shopify-sync-info" class="w-auto">
                                     <button type="button" id="btn-sync-selected" class="btn btn-xl btn-primary w-100 font-weight-bold py-3" style="display: none;">Sync Selected Products</button>
-                                <div class="product-count py-3 d-flex justify-content-stretch">
-                                    <div class="text-center p-3 mx-2 rounded" style="background-color: var(--bg-color)">
-                                        <h2 id="count-products-shopify">-</h2>
-                                        <p class="text-muted m-0">in Shopify</p>
-                                    </div>
-                                    <div class="text-center p-3 mx-2 rounded" style="background-color: var(--bg-color)">
-                                        <h2 id="count-products-erpnext">-</h2>
-                                        <p class="text-muted m-0">in ERPNext</p>
-                                    </div>
-                                    <div class="text-center p-3 mx-2 rounded" style="background-color: var(--bg-color)">
-                                        <h2 id="count-products-synced">-</h2>
-                                        <p class="text-muted m-0">Synced</p>
-                                    </div>
-                                </div>
                             </div>
                         </div>
 
@@ -98,29 +84,22 @@ shopify.ProductImporter = class {
 
 	}
 
-	async fetchProductCount() {
-
-		try {
-			const {message: {erpnextCount, shopifyCount, syncedCount}} =
-				await frappe.call({
-					method: 'ecommerce_integrations.shopify.page.shopify_import_products.' +
-						'shopify_import_products.get_product_count'
-				});
-
-			this.wrapper.find('#count-products-shopify').text(shopifyCount);
-			this.wrapper.find('#count-products-erpnext').text(erpnextCount);
-			this.wrapper.find('#count-products-synced').text(syncedCount);
-
-		} catch (error) {
-			frappe.throw(__('Error fetching product count.'));
-		}
-
-	}
-
 	async addTable() {
 
 		const listElement = this.wrapper.find('#shopify-product-list')[0];
 		const instanceCopy = this;
+		let currentJSDate = new Date();
+
+		// Set to last month.
+		currentJSDate.setMonth(currentJSDate.getMonth() - 1);
+		let timezoneOffset = currentJSDate.toString().split(" ")[5].slice(3);
+		let currentISODate = currentJSDate.toISOString();
+
+		// YYYY-MM-DDTHH:MM:SS[timezone difference]
+		// Ex: 2024-08-30T17:28:18-0400
+		let shopifyFormattedDate = currentISODate.slice(0, -5) + timezoneOffset;
+		console.log(shopifyFormattedDate)
+
 		this.shopifyProductTable = new frappe.DataTable(listElement, {
 			columns: [
 				{
@@ -177,13 +156,8 @@ shopify.ProductImporter = class {
 				}
 			],
 			checkedRowStatus: false,
-			data: await this.fetchShopifyProducts(),
-			events: {
-				onCheckRow(row) {
-					instanceCopy.customOnCheckRows(row);
-					instanceCopy.checkAllRowCheckBoxes();
-				}
-			},
+			clusterize: false,
+			data: await this.fetchShopifyProducts(shopifyFormattedDate),
 			layout: 'fixed',
 			noDataMessage: "No Items were retrieved",  // Message when there is no data.
 			serialNoColumn: false,
@@ -193,102 +167,7 @@ shopify.ProductImporter = class {
 		// Make scrollbar react to resize events and increase row height size.
 		this.shopifyProductTable.style.setStyle(".dt-scrollable", {
 			overflow: "visible",
-			height: "70vh"
-		});
-
-		this.shopifyProductTable.style.setStyle(".dt-toast__message", {
-			color: "#383838",
-			backgroundColor: "#f3f3f3",
-			border: "2px solid rgba(0, 0, 0, 0.25)",
-			borderRadius: "8px",
-			minWidth: "20%",
-			fontSize: "1.05rem"
-		});
-
-		this.wrapper.find('.shopify-datatable-footer').show();
-
-	}
-
-	createDatatable(data = null) {
-		// Delete old datatable.
-		this.shopifyProductTable.events.onCheckRow = () => {}
-		delete this.shopifyProductTable;
-
-		const listElement = this.wrapper.find('#shopify-product-list')[0];
-		const instanceCopy = this;
-		this.shopifyProductTable = new frappe.DataTable(listElement, {
-			columns: [
-				{
-					name: "Created On",
-					align: "center",
-					editable: false,
-					focusable: false,
-					sortable: true,
-					// By default, sort the data by creation date (descending).
-					sortOrder: "desc",
-					width: 120
-
-				},
-				{
-					name: 'Status',
-					align: 'center',
-					dropdown: false,
-					editable: false,
-					focusable: false,
-					sortable: true,
-					width: 125
-				},
-				{
-					name: 'Action',
-					align: 'center',
-					editable: false,
-					focusable: false,
-					sortable: true,
-					width: 100
-				},
-				{
-					name: 'ID',
-					align: 'center',
-					editable: false,
-					focusable: false,
-					sortable: true,
-					width: 150
-				},
-				{
-					name: 'Name',
-					align: "left",
-					editable: false,
-					focusable: false,
-					sortable: true,
-					width: 300
-				},
-				{
-					name: 'SKUs',
-					align: "left",
-					editable: false,
-					focusable: false,
-					sortable: false,
-					width: 300
-				}
-			],
-			data: data,
-			events: {
-				onCheckRow(row) {
-					instanceCopy.customOnCheckRows(row);
-					instanceCopy.checkAllRowCheckBoxes();
-				}
-			},
-			layout: 'fixed',
-			noDataMessage: "No Items were retrieved",  // Message when there is no data.
-			serialNoColumn: false,
-			checkedRowStatus: false,
-			checkboxColumn: true,
-		});
-
-		// Make scrollbar react to resize events and increase row height size.
-		this.shopifyProductTable.style.setStyle(".dt-scrollable", {
-			overflow: "visible",
-			height: "70vh"
+			minHeight: "70vh"
 		});
 
 		this.shopifyProductTable.style.setStyle(".dt-toast__message", {
@@ -301,21 +180,17 @@ shopify.ProductImporter = class {
 		});
 	}
 
-	async fetchShopifyProducts(from_ = null) {
+	async fetchShopifyProducts(fromDate) {
 
 		try {
 			const {
-				message: {
-					products,
-					nextUrl,
-					prevUrl
-				}
+				message: {products}
 			} = await frappe.call({
 				method: 'ecommerce_integrations.shopify.page.shopify_import_products.shopify_import_products.get_shopify_products',
-				args: {from_}
+				args: {
+					from_date: fromDate
+				}
 			});
-			this.nextUrl = nextUrl;
-			this.prevUrl = prevUrl;
 
 			const shopifyProducts = products.map((product) => ({
 				// 'Image': product.image && product.image.src && `<img style="height: 50px" src="${product.image.src}">`,
@@ -328,6 +203,9 @@ shopify.ProductImporter = class {
 					`<button type="button" class="btn btn-default btn-xs btn-sync mx-2" data-product="${product.id}"> Sync </button>` :
 					`<button type="button" class="btn btn-default btn-xs btn-resync mx-2" data-product="${product.id}"> Re-sync </button>`,
 			}));
+
+			console.log(shopifyProducts);
+			this.productCount = shopifyProducts.length;
 
 			return shopifyProducts;
 		} catch (error) {
@@ -350,6 +228,56 @@ shopify.ProductImporter = class {
 			this.shopifyProductTable.setDimensions();
 		});
 
+		$(window).on("scroll", () => {
+
+		})
+
+		$("input:checkbox").on("click", e => {
+			const _this = $(e.currentTarget);
+			console.log(_this);
+			let isCheckBoxHeader = _this.parent().hasClass("dt-cell__content--header-0");
+
+			if (isCheckBoxHeader) {
+				// We have checked the top checkbox, signaling to add or remove everything.
+				for (let index = 0; index < this.productCount; ++index) {
+					let productId = getProductID(_this, index);
+
+					if (!_this.is(":checked") && productId !== undefined &&
+						this.selectedRows.has(productId)) {
+						this.selectedRows.delete(productId);
+						continue;
+					}
+
+					if (_this.is(":checked") && productId !== undefined &&
+						!this.selectedRows.has(productId)) {
+						this.selectedRows.add(productId);
+					}
+				}
+				console.log(this.selectedRows);
+				this.checkAllRowCheckBoxes();
+				return;
+			}
+
+			let whichRow = _this.parents(".dt-row");
+
+			if (_this.is(":checked")) {
+				this.selectedRows.add(getProductID(whichRow));
+				console.log(this.selectedRows);
+				this.checkAllRowCheckBoxes();
+				return;
+			}
+
+			this.selectedRows.delete(getProductID(whichRow));
+
+			// Set all checkbox box to unchecked since there is at least one unchecked.
+			$(".dt-row")
+				.find(".dt-cell__content--header-0")
+				.children(":first")
+				.prop("checked", false);
+			console.log(this.selectedRows);
+			this.checkAllRowCheckBoxes();
+		});
+
 		$(document).ready(() => {
 			$("h3").css("overflow", "visible");
 			$("h3").css("text-ellipsis", "unset");
@@ -357,13 +285,14 @@ shopify.ProductImporter = class {
 
 		this.wrapper.on("click", "#btn-sync-selected", e => {
 			const _this = $(e.currentTarget);
-			frappe.confirm( __(`Are you sure you want to proceed synching these ${this.selectedRows.size} products? Careful, this action is irreversible! Proceed Anyway?`),
+			frappe.confirm(__(`Are you sure you want to proceed synching these ${this.selectedRows.size} products? Careful, this action is irreversible! Proceed Anyway?`),
 				() => {
 					_this.prop("disabled", true).text("Syncing...");
 					this.syncSelected();
 					_this.prop("disabled", false).text("Sync Selected Products");
 				},
-				() => {});
+				() => {
+				});
 		});
 
 		// sync a product from table
@@ -433,9 +362,6 @@ shopify.ProductImporter = class {
 			args: {product},
 		});
 
-		if (status)
-			this.fetchProductCount();
-
 		return status;
 
 	}
@@ -447,25 +373,21 @@ shopify.ProductImporter = class {
 			args: {product},
 		});
 
-		if (status)
-			this.fetchProductCount();
-
 		return status;
 
 	}
 
 	async refresh({currentTarget}) {
 
-		const _this = $(currentTarget);
+		// const _this = $(currentTarget);
 
 		$('.btn-paginate').prop('disabled', true);
 		this.shopifyProductTable.showToastMessage('Loading...');
 
-		const newData = await this.fetchShopifyProducts(
-			_this.hasClass('btn-next') ? this.nextUrl : this.prevUrl);
+		// const newData = await this.fetchShopifyProducts(
+		// 	_this.hasClass('btn-next') ? this.nextUrl : this.prevUrl);
 
 		this.saveRowCheckBoxStates();
-		this.createDatatable(newData);
 
 		$('.btn-paginate').prop('disabled', false);
 		this.shopifyProductTable.clearToastMessage();
@@ -499,10 +421,6 @@ shopify.ProductImporter = class {
 		_log.parents('.card').show();
 		_log.text(''); // clear logs
 
-		// define counters here to prevent calling jquery every time
-		const _syncedCounter = $('#count-products-synced');
-		const _erpnextCounter = $('#count-products-erpnext');
-
 		frappe.realtime.on('shopify.key.sync.selected.products', ({
 																	  message,
 																	  synced,
@@ -513,8 +431,6 @@ shopify.ProductImporter = class {
 			message = `<pre class="mb-0">${message}</pre>`;
 			_log.append(message);
 			_log.scrollTop(_log[0].scrollHeight)
-
-			if (synced) this.updateSyncedCount(_syncedCounter, _erpnextCounter);
 
 			if (done) {
 				frappe.realtime.off('shopify.key.sync.selected.products');
@@ -530,25 +446,23 @@ shopify.ProductImporter = class {
 	toggleSyncSelectedButton(disable = true) {
 
 		if (disable) {
+			$("#sync-details").css("display", "none");
 			$("#btn-sync-selected").text(`Sync Selected Products (${this.selectedRows.size})`);
 			$("#btn-sync-selected").css("display", "none");
 			return;
 		}
 
+		$("#sync-details").css({
+			"display": "flex",
+			"justify-content": "center",
+			"align-items": "stretch",
+			"margin": "auto"
+		});
 		$("#btn-sync-selected").css({
 			"display": "flex",
 			"justify-content": "center",
 			"margin": "auto"
 		}).text(`Sync Selected Products (${this.selectedRows.size})`);
-	}
-
-	updateSyncedCount(_syncedCounter, _erpnextCounter) {
-		let _synced = parseFloat(_syncedCounter.text());
-		let _erpnext = parseFloat(_erpnextCounter.text());
-
-		_syncedCounter.text(_synced + 1);
-		_erpnextCounter.text(_erpnext + 1);
-
 	}
 
 	checkAllRowCheckBoxes() {
@@ -561,9 +475,9 @@ shopify.ProductImporter = class {
 	}
 
 	saveRowCheckBoxStates() {
-		for (let index = 0; index < 20; ++index) {
-			let productId = getProductID(index);
-			let checked = getCheckBoxStatus(index);
+		for (let index = 0; index < this.productCount; ++index) {
+			let productId = getProductID(null, index);
+			let checked = getCheckBoxStatus(null, index);
 			this.allRowCheckBoxStates.set(productId, checked);
 		}
 
@@ -571,63 +485,43 @@ shopify.ProductImporter = class {
 	}
 
 	refreshRowCheckBoxes() {
-		for (let index = 0; index < 20; ++index) {
-			let productId = getProductID(index);
+		for (let index = 0; index < this.productCount; ++index) {
+			let productId = getProductID(null, index);
 			$(".dt-row-" + index)
 				.find(".dt-cell__content--col-0")
 				.children(":first")
 				.prop("checked", this.allRowCheckBoxStates.get(productId) !== undefined && this.allRowCheckBoxStates.get(productId))
 		}
 	}
-
-
-	customOnCheckRows(row) {
-		let checkBoxHeader = $(".dt-row")
-			.find(".dt-cell__content--header-0")
-			.children(":first")
-			.is(":checked");  // Get checkbox value.
-
-		if (row === undefined) {
-			// We have checked the top checkbox, signaling to add or remove everything.
-			for (let index = 0; index < 20; ++index) {
-				let productId = getProductID(index);
-
-				if (productId !== undefined && checkBoxHeader) {
-					this.selectedRows.add(productId);
-					continue;
-				}
-				this.selectedRows.delete(productId);
-			}
-			console.log(this.selectedRows);
-			return;
-		}
-
-		let whichRow = row[0].rowIndex;
-		let isChecked = getCheckBoxStatus(whichRow);
-
-		// If this is checked.
-		if (isChecked) {
-			this.selectedRows.add(row[4].content);
-			console.log(this.selectedRows, whichRow);
-			return;
-		}
-
-		this.selectedRows.delete(row[4].content);
-		console.log(this.selectedRows, whichRow);
-	}
 }
 
-const getProductID = (rowNum) => {
-	return Number($(".dt-row-" + rowNum)
-		.find(".dt-cell__content--col-4")  // Find the fifth column's content div (action).
+const getProductID = (row, rowNum = null) => {
+	if (rowNum !== null) {
+		return Number($(".dt-row-" + rowNum)
+			.find(".dt-cell__content--col-4")  // Find the fifth column's content div (action).
+			.attr("title")  // Get product ID.
+			.split(" ")
+			.join(""));  // Cleanup spaces.
+	}
+
+	console.log(row);
+	return Number(row.find(".dt-cell__content--col-4")  // Find the fifth column's content div (action).
 		.attr("title")  // Get product ID.
 		.split(" ")
 		.join(""));  // Cleanup spaces.
 }
 
-const getCheckBoxStatus = (rowNum) => {
-	return $(".dt-row-" + rowNum)
-		.find(".dt-cell__content--col-0")  // Find the first column's content div (checkbox).
+const getCheckBoxStatus = (row, rowNum = null) => {
+	if (rowNum !== null) {
+		return Number($(".dt-row-" + rowNum)
+			.find(".dt-cell__content--col-0")  // Find the fifth column's content div (action).
+			.children(":first")
+			.is(":checked"));  // Check if the input under it is checked.
+	}
+
+	console.log(row);
+
+	return row.find(".dt-cell__content--col-0")  // Find the first column's content div (checkbox).
 		.children(":first")
 		.is(":checked");  // Check if the input under it is checked.
 }

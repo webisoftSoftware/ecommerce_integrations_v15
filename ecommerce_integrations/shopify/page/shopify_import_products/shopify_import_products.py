@@ -15,15 +15,15 @@ REALTIME_KEY = "shopify.key.sync.all.products"
 
 
 @frappe.whitelist()
-def get_shopify_products(from_=None):
-	shopify_products = fetch_all_products(from_)
+def get_shopify_products(from_date):
+	shopify_products = fetch_all_products(from_date)
 	return shopify_products
 
 
-def fetch_all_products(from_=None):
+def fetch_all_products(from_date):
 	# format shopify collection for datatable
 
-	collection = _fetch_products_from_shopify(from_)
+	collection = _fetch_products_from_shopify(from_date)
 
 	products = []
 	for product in collection:
@@ -31,29 +31,12 @@ def fetch_all_products(from_=None):
 		d["synced"] = is_synced(product.id)
 		products.append(d)
 
-	next_url = None
-	if collection.has_next_page():
-		next_url = collection.next_page_url
-
-	prev_url = None
-	if collection.has_previous_page():
-		prev_url = collection.previous_page_url
-
-	return {
-		"products": products,
-		"nextUrl": next_url,
-		"prevUrl": prev_url,
-	}
+	return {"products": products}
 
 
 @temp_shopify_session
-def _fetch_products_from_shopify(from_=None, limit=20):
-	if from_:
-		collection = Product.find(from_=from_)
-	else:
-		collection = Product.find(limit=limit)
-
-	return collection
+def _fetch_products_from_shopify(from_date, limit=50):
+	return Product.find(created_at_min=from_date, limit=limit)
 
 
 @frappe.whitelist()
