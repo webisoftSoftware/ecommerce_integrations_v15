@@ -100,7 +100,7 @@ def is_synced(product):
 
 
 @frappe.whitelist()
-def import_selected_products(products):
+def import_selected_products(products: list):
 	frappe.enqueue(queue_sync_selected_products, products=products, queue="long",
 				   job_name="shopify.job.sync.selected.products",
 				   key="shopify.key.sync.selected.products")
