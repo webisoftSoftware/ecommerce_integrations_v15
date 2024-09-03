@@ -47,7 +47,7 @@ def make_credit_note(refund, setting, sales_invoice):
 				"qty": line.get("quantity"),
 				"price": line["line_item"]["price"],
 				"rate": line["line_item"]["discount_allocations"][0]["amount"] if \
-					len(line["line_item"]["discount_allocations"]) > 0 else float(line["line_item"]["price"]).__abs__(),
+					len(line["line_item"]["discount_allocations"]) > 0 else float(line["line_item"]["price"]),
 			}
 
 		_handle_partial_returns(credit_note, return_items, sales_invoice)
@@ -135,7 +135,7 @@ def _handle_partial_returns(credit_note, returned_items: List[str], sales_invoic
 	for item in credit_note.items:
 		item.qty = -1 * returned_items[item.item_code]["qty"]
 		item.amount = -1.0 * float(returned_items[item.item_code]["price"])
-		item.rate = float(returned_items[item.item_code]["rate"]) / (-item.qty)
+		item.rate = (float(returned_items[item.item_code]["rate"]) / (-item.qty)).__abs__()
 
 	returned_qty_map = defaultdict(float)
 	for item in credit_note.items:
