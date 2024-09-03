@@ -46,8 +46,9 @@ def make_credit_note(refund, setting, sales_invoice):
 			return_items[get_item_code(line.get("line_item"))] = {
 				"qty": line.get("quantity"),
 				"price": line["line_item"]["price"],
-				"rate": float(line["line_item"]["discount_allocations"][0]["amount"]) / float(line.get("quantity"))
-					if len(line["line_item"]["discount_allocations"]) > 0 else float(line["line_item"]["price"]),
+				"rate": line["line_item"]["discount_allocations"][0]["amount"] if \
+					len(line["line_item"]["discount_allocations"]) > 0 else
+				float(line["line_item"]["price"]) * float(line.get("quantity")),
 			}
 
 		_handle_partial_returns(credit_note, return_items, sales_invoice)
