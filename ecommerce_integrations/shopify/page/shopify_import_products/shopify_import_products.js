@@ -1,10 +1,8 @@
 frappe.provide('shopify');
 
 frappe.pages['shopify-import-products'].on_page_load = function (wrapper) {
-	let page = frappe.ui.make_app_page({
-		parent: wrapper,
-		title: 'Shopify Item Sync',
-		single_column: true
+	frappe.ui.make_app_page({
+		parent: wrapper, title: 'Shopify Item Sync', single_column: true
 	});
 
 	new shopify.ProductImporter(wrapper);
@@ -20,23 +18,19 @@ shopify.ProductImporter = class {
 		this.init();
 		this.selectedRows = new Set();
 		this.syncRunning = false;
-		this.allRowCheckBoxStates = new Map();
 		this.productCount = 0;
 
 	}
 
 	init() {
-		frappe.run_serially([
-			() => this.addMarkup(),
-			() => this.addTable(),
-			() => this.checkSyncStatus(),
-			() => this.listen(),
-		]);
+		frappe.run_serially([() => this.addMarkup(), () => this.addTable(), () => this.checkSyncStatus(), () => this.listen(),]);
 	}
 
 	async checkSyncStatus() {
-		const jobs = await frappe.db.get_list("RQ Job", {filters: {"status": ("in", ("queued", "started"))}});
-		this.syncRunning = jobs.find(job => job.job_name == 'shopify.job.sync.selected.products') !== undefined;
+		const jobs = await frappe.db.get_list("RQ Job", {filters: {"status": ("in", ["queued", "started"])}});
+		const job = jobs.find(job => job.job_name === 'shopify.job.sync.selected.products');
+
+		this.syncRunning = job !== undefined && (job.status === "queued" || job.status === "started");
 
 		if (this.syncRunning) {
 			this.logSync();
@@ -87,7 +81,6 @@ shopify.ProductImporter = class {
 	async addTable() {
 
 		const listElement = this.wrapper.find('#shopify-product-list')[0];
-		const instanceCopy = this;
 		let currentJSDate = new Date();
 
 		// Set to last month.
@@ -101,60 +94,52 @@ shopify.ProductImporter = class {
 		console.log(shopifyFormattedDate)
 
 		this.shopifyProductTable = new frappe.DataTable(listElement, {
-			columns: [
-				{
-					name: "Created On",
-					align: "center",
-					editable: false,
-					focusable: false,
-					sortable: true,
-					// By default, sort the data by creation date (descending).
-					sortOrder: "desc",
-					width: 120
+			columns: [{
+				name: "Created On",
+				align: "center",
+				editable: false,
+				focusable: false,
+				sortable: true, // By default, sort the data by creation date (descending).
+				sortOrder: "desc",
+				width: 120
 
-				},
-				{
-					name: 'Status',
-					align: 'center',
-					dropdown: false,
-					editable: false,
-					focusable: false,
-					sortable: true,
-					width: 125
-				},
-				{
-					name: 'Action',
-					align: 'center',
-					editable: false,
-					focusable: false,
-					sortable: true,
-					width: 100
-				},
-				{
-					name: 'ID',
-					align: 'center',
-					editable: false,
-					focusable: false,
-					sortable: true,
-					width: 150
-				},
-				{
-					name: 'Name',
-					align: "left",
-					editable: false,
-					focusable: false,
-					sortable: true,
-					width: 300
-				},
-				{
-					name: 'SKUs',
-					align: "left",
-					editable: false,
-					focusable: false,
-					sortable: false,
-					width: 300
-				}
-			],
+			}, {
+				name: 'Status',
+				align: 'center',
+				dropdown: false,
+				editable: false,
+				focusable: false,
+				sortable: true,
+				width: 125
+			}, {
+				name: 'Action',
+				align: 'center',
+				editable: false,
+				focusable: false,
+				sortable: true,
+				width: 100
+			}, {
+				name: 'ID',
+				align: 'center',
+				editable: false,
+				focusable: false,
+				sortable: true,
+				width: 150
+			}, {
+				name: 'Name',
+				align: "left",
+				editable: false,
+				focusable: false,
+				sortable: true,
+				width: 300
+			}, {
+				name: 'SKUs',
+				align: "left",
+				editable: false,
+				focusable: false,
+				sortable: false,
+				width: 300
+			}],
 			checkedRowStatus: false,
 			clusterize: false,
 			data: await this.fetchShopifyProducts(shopifyFormattedDate),
@@ -166,8 +151,7 @@ shopify.ProductImporter = class {
 
 		// Make scrollbar react to resize events and increase row height size.
 		this.shopifyProductTable.style.setStyle(".dt-scrollable", {
-			overflow: "visible",
-			minHeight: "70vh"
+			overflow: "visible", minHeight: "70vh"
 		});
 
 		this.shopifyProductTable.style.setStyle(".dt-toast__message", {
@@ -199,9 +183,7 @@ shopify.ProductImporter = class {
 				'Name': product.title,
 				'SKUs': product.variants && product.variants.map(a => `${a.sku}`).join(', '),
 				'Status': this.getProductSyncStatus(product.synced),
-				'Action': !product.synced ?
-					`<button type="button" class="btn btn-default btn-xs btn-sync mx-2" data-product="${product.id}"> Sync </button>` :
-					`<button type="button" class="btn btn-default btn-xs btn-resync mx-2" data-product="${product.id}"> Re-sync </button>`,
+				'Action': !product.synced ? `<button type="button" class="btn btn-default btn-xs btn-sync mx-2" data-product="${product.id}"> Sync </button>` : `<button type="button" class="btn btn-default btn-xs btn-resync mx-2" data-product="${product.id}"> Re-sync </button>`,
 			}));
 
 			console.log(shopifyProducts);
@@ -216,9 +198,7 @@ shopify.ProductImporter = class {
 
 	getProductSyncStatus(status) {
 
-		return status ?
-			`<span class="indicator-pill green">Synced</span>` :
-			`<span class="indicator-pill orange">Not Synced</span>`;
+		return status ? `<span class="indicator-pill green">Synced</span>` : `<span class="indicator-pill orange">Not Synced</span>`;
 
 	}
 
@@ -227,10 +207,6 @@ shopify.ProductImporter = class {
 		$(window).on("resize", () => {
 			this.shopifyProductTable.setDimensions();
 		});
-
-		$(window).on("scroll", () => {
-
-		})
 
 		$("input:checkbox").on("click", e => {
 			const _this = $(e.currentTarget);
@@ -242,14 +218,12 @@ shopify.ProductImporter = class {
 				for (let index = 0; index < this.productCount; ++index) {
 					let productId = getProductID(_this, index);
 
-					if (!_this.is(":checked") && productId !== undefined &&
-						this.selectedRows.has(productId)) {
+					if (!_this.is(":checked") && productId !== undefined && this.selectedRows.has(productId)) {
 						this.selectedRows.delete(productId);
 						continue;
 					}
 
-					if (_this.is(":checked") && productId !== undefined &&
-						!this.selectedRows.has(productId)) {
+					if (_this.is(":checked") && productId !== undefined && !this.selectedRows.has(productId)) {
 						this.selectedRows.add(productId);
 					}
 				}
@@ -285,14 +259,12 @@ shopify.ProductImporter = class {
 
 		this.wrapper.on("click", "#btn-sync-selected", e => {
 			const _this = $(e.currentTarget);
-			frappe.confirm(__(`Are you sure you want to proceed synching these ${this.selectedRows.size} products? Careful, this action is irreversible! Proceed Anyway?`),
-				() => {
-					_this.prop("disabled", true).text("Syncing...");
-					this.syncSelected();
-					_this.prop("disabled", false).text("Sync Selected Products");
-				},
-				() => {
-				});
+			frappe.confirm(__(`Are you sure you want to proceed synching these ${this.selectedRows.size} products? Careful, this action is irreversible! Proceed Anyway?`), () => {
+				_this.prop("disabled", true).text("Syncing...");
+				this.syncSelected();
+				_this.prop("disabled", false).text("Sync Selected Products");
+			}, () => {
+			});
 		});
 
 		// sync a product from table
@@ -377,24 +349,6 @@ shopify.ProductImporter = class {
 
 	}
 
-	async refresh({currentTarget}) {
-
-		// const _this = $(currentTarget);
-
-		$('.btn-paginate').prop('disabled', true);
-		this.shopifyProductTable.showToastMessage('Loading...');
-
-		// const newData = await this.fetchShopifyProducts(
-		// 	_this.hasClass('btn-next') ? this.nextUrl : this.prevUrl);
-
-		this.saveRowCheckBoxStates();
-
-		$('.btn-paginate').prop('disabled', false);
-		this.shopifyProductTable.clearToastMessage();
-
-		setTimeout(() => this.refreshRowCheckBoxes(), 500);
-	}
-
 	syncSelected() {
 
 		this.checkSyncStatus();
@@ -402,12 +356,12 @@ shopify.ProductImporter = class {
 		if (this.syncRunning) {
 			frappe.msgprint(__('Sync already in progress'));
 		} else {
-			console.log(this.selectedRows);
+			console.log([...this.selectedRows].map(id => `${id}`).join(", "));
 			frappe.call({
 				method: 'ecommerce_integrations.shopify.page.shopify_import_products.' +
 					'shopify_import_products.import_selected_products',
 				args: {
-					"products": this.selectedRows
+					products: [...this.selectedRows].map(id => `${id}`).join(",")
 				},
 				freeze: true
 			})
@@ -436,7 +390,6 @@ shopify.ProductImporter = class {
 			if (done) {
 				frappe.realtime.off('shopify.key.sync.selected.products');
 				this.toggleSyncSelectedButton(false);
-				this.fetchProductCount();
 				this.syncRunning = false;
 			}
 
@@ -460,9 +413,7 @@ shopify.ProductImporter = class {
 			"margin": "auto"
 		});
 		$("#btn-sync-selected").css({
-			"display": "flex",
-			"justify-content": "center",
-			"margin": "auto"
+			"display": "flex", "justify-content": "center", "margin": "auto"
 		}).text(`Sync Selected Products (${this.selectedRows.size})`);
 	}
 
@@ -473,26 +424,6 @@ shopify.ProductImporter = class {
 			return;
 		}
 		this.toggleSyncSelectedButton(true);
-	}
-
-	saveRowCheckBoxStates() {
-		for (let index = 0; index < this.productCount; ++index) {
-			let productId = getProductID(null, index);
-			let checked = getCheckBoxStatus(null, index);
-			this.allRowCheckBoxStates.set(productId, checked);
-		}
-
-
-	}
-
-	refreshRowCheckBoxes() {
-		for (let index = 0; index < this.productCount; ++index) {
-			let productId = getProductID(null, index);
-			$(".dt-row-" + index)
-				.find(".dt-cell__content--col-0")
-				.children(":first")
-				.prop("checked", this.allRowCheckBoxStates.get(productId) !== undefined && this.allRowCheckBoxStates.get(productId))
-		}
 	}
 }
 
@@ -510,19 +441,4 @@ const getProductID = (row, rowNum = null) => {
 		.attr("title")  // Get product ID.
 		.split(" ")
 		.join(""));  // Cleanup spaces.
-}
-
-const getCheckBoxStatus = (row, rowNum = null) => {
-	if (rowNum !== null) {
-		return Number($(".dt-row-" + rowNum)
-			.find(".dt-cell__content--col-0")  // Find the fifth column's content div (action).
-			.children(":first")
-			.is(":checked"));  // Check if the input under it is checked.
-	}
-
-	console.log(row);
-
-	return row.find(".dt-cell__content--col-0")  // Find the first column's content div (checkbox).
-		.children(":first")
-		.is(":checked");  // Check if the input under it is checked.
 }

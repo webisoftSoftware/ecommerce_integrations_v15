@@ -10,8 +10,8 @@ from ecommerce_integrations.shopify.constants import MODULE_NAME
 from ecommerce_integrations.shopify.product import ShopifyProduct
 
 # constants
-SYNC_JOB_NAME = "shopify.job.sync.all.products"
-REALTIME_KEY = "shopify.key.sync.all.products"
+SYNC_JOB_NAME = "shopify.job.sync.selected.products"
+REALTIME_KEY = "shopify.key.sync.selected.products"
 
 
 @frappe.whitelist()
@@ -100,97 +100,43 @@ def is_synced(product):
 
 
 @frappe.whitelist()
-def import_selected_products(products: list):
-	frappe.enqueue(queue_sync_selected_products, products=products, queue="long",
-				   job_name="shopify.job.sync.selected.products",
-				   key="shopify.key.sync.selected.products")
+def import_selected_products(products: str):
+	product_list: list = products.split(",")
+
+	frappe.enqueue(queue_sync_selected_products, products=product_list, queue="long",
+				   job_name=SYNC_JOB_NAME,
+				   key=REALTIME_KEY)
 
 
-@frappe.whitelist()
-def import_all_products():
-	frappe.enqueue(
-		queue_sync_all_products, queue="long", job_name=SYNC_JOB_NAME, key=REALTIME_KEY,
-	)
-
-
-def queue_sync_selected_products(_args, **kwargs):
+def queue_sync_selected_products(*args, **kwargs):
 	start_time = process_time()
 
-	publish("Syncing selected products...")
-
 	_sync = True
-	products = kwargs.get("products", [])
 	savepoint = "shopify_product_sync"
-	while _sync:
-		for product in products:
-			try:
-				publish(f"Syncing product {product}", br=False)
-				frappe.db.savepoint(savepoint)
-				if is_synced(product):
-					publish(f"Product {product} already synced. Skipping...")
-					continue
-
-				shopify_product = ShopifyProduct(product)
-				shopify_product.sync_product()
-
-				publish(f"✅ Synced Product {product}", synced=True)
-
-			except UniqueValidationError as e:
-				publish(f"❌ Error Syncing Product {product} : {str(e)}", error=True)
-				frappe.db.rollback(save_point=savepoint)
+	products: list = kwargs.get("products", [])
+	publish(f"{products}")
+	for product in products:
+		try:
+			publish(f"Syncing product {product}", br=False)
+			frappe.db.savepoint(savepoint)
+			if is_synced(product):
+				publish(f"Product {product} already synced. Skipping...")
 				continue
 
-			except Exception as e:
-				publish(f"❌ Error Syncing Product {product} : {str(e)}", error=True)
-				frappe.db.rollback(save_point=savepoint)
-				continue
+			shopify_product = ShopifyProduct(product)
+			shopify_product.sync_product()
 
-	end_time = process_time()
-	publish(f"🎉 Done in {end_time - start_time}s", done=True)
-	return True
+			publish(f"✅ Synced Product {product}", synced=True)
 
+		except UniqueValidationError as e:
+			publish(f"❌ Error Syncing Product {product} : {str(e)}", error=True)
+			frappe.db.rollback(save_point=savepoint)
+			continue
 
-def queue_sync_all_products(*args, **kwargs):
-	start_time = process_time()
-
-	counts = get_product_count()
-	publish("Syncing all products...")
-
-	if counts["shopifyCount"] < counts["syncedCount"]:
-		publish("⚠ Shopify has less products than ERPNext.")
-
-	_sync = True
-	collection = _fetch_products_from_shopify(limit=100)
-	savepoint = "shopify_product_sync"
-	while _sync:
-		for product in collection:
-			try:
-				publish(f"Syncing product {product.id}", br=False)
-				frappe.db.savepoint(savepoint)
-				if is_synced(product.id):
-					publish(f"Product {product.id} already synced. Skipping...")
-					continue
-
-				shopify_product = ShopifyProduct(product.id)
-				shopify_product.sync_product()
-
-				publish(f"✅ Synced Product {product.id}", synced=True)
-
-			except UniqueValidationError as e:
-				publish(f"❌ Error Syncing Product {product.id} : {str(e)}", error=True)
-				frappe.db.rollback(save_point=savepoint)
-				continue
-
-			except Exception as e:
-				publish(f"❌ Error Syncing Product {product.id} : {str(e)}", error=True)
-				frappe.db.rollback(save_point=savepoint)
-				continue
-
-		if collection.has_next_page():
-			frappe.db.commit()  # prevents too many write request error
-			collection = _fetch_products_from_shopify(from_=collection.next_page_url)
-		else:
-			_sync = False
+		except Exception as e:
+			publish(f"❌ Error Syncing Product {product} : {str(e)}", error=True)
+			frappe.db.rollback(save_point=savepoint)
+			continue
 
 	end_time = process_time()
 	publish(f"🎉 Done in {end_time - start_time}s", done=True)
