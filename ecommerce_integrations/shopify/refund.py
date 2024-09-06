@@ -43,18 +43,18 @@ def make_credit_note(refund, setting, sales_invoice):
 
 		return_items = defaultdict()
 		for line in refund.get("refund_line_items"):
-			if len(line["line_item"]["discount_allocations"]) > 0:
-				return_items[get_item_code(line.get("line_item"))] = {
-					"qty": line.get("quantity"),
-					"price": line["line_item"]["price"],
-					"rate": line["line_item"]["discount_allocations"][0]["amount"]
-				}
-				continue
+			# if len(line["line_item"]["discount_allocations"]) > 0:
+			# 	return_items[get_item_code(line.get("line_item"))] = {
+			# 		"qty": line.get("quantity"),
+			# 		"price": line["line_item"]["price"],
+			# 		"rate": line["line_item"]["discount_allocations"][0]["amount"]
+			# 	}
+			# 	continue
 
 			return_items[get_item_code(line.get("line_item"))] = {
 				"qty": line.get("quantity"),
-				"price": float(line["line_item"]["price"]) * float(line.get("quantity")),
-				"rate": float(line["line_item"]["price"]) * float(line.get("quantity")),
+				"price": float(line["line_item"]["price"]),
+				"rate": float(line["line_item"]["price"]) / float(line.get("quantity")),
 			}
 
 		_handle_partial_returns(credit_note, return_items, sales_invoice)
@@ -105,7 +105,6 @@ def create_debit_note(sales_invoice, amount, setting):
 def create_credit_note(invoice_name, setting):
 	credit_note = make_sales_return(invoice_name)
 
-	# Ignore taxes.
 	credit_note.taxes_category = "Ecommerce Integrations - Ignore"
 
 	for item in credit_note.items:
@@ -114,8 +113,8 @@ def create_credit_note(invoice_name, setting):
 	for tax in credit_note.taxes:
 		tax.item_wise_tax_detail = json.loads(tax.item_wise_tax_detail)
 		for item, tax_distribution in tax.item_wise_tax_detail.items():
-			tax_distribution[1] *= 0
-			tax_distribution[0] *= 0
+			tax_distribution[1] *= -1
+			tax_distribution[0] *= -1
 		tax.item_wise_tax_detail = json.dumps(tax.item_wise_tax_detail)
 
 	return credit_note
@@ -142,7 +141,7 @@ def _handle_partial_returns(credit_note, returned_items: List[str], sales_invoic
 	for item in credit_note.items:
 		item.qty = -1 * returned_items[item.item_code]["qty"]
 		item.amount = -1.0 * float(returned_items[item.item_code]["price"])
-		item.rate = float(returned_items[item.item_code]["rate"]) / (-item.qty)
+		item.rate = float(returned_items[item.item_code]["rate"])
 
 	returned_qty_map = defaultdict(float)
 	for item in credit_note.items:
