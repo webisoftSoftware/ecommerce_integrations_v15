@@ -43,14 +43,6 @@ def make_credit_note(refund, setting, sales_invoice):
 
 		return_items = defaultdict()
 		for line in refund.get("refund_line_items"):
-			# if len(line["line_item"]["discount_allocations"]) > 0:
-			# 	return_items[get_item_code(line.get("line_item"))] = {
-			# 		"qty": line.get("quantity"),
-			# 		"price": line["line_item"]["price"],
-			# 		"rate": line["line_item"]["discount_allocations"][0]["amount"]
-			# 	}
-			# 	continue
-
 			return_items[get_item_code(line.get("line_item"))] = {
 				"qty": line.get("quantity"),
 				"price": float(line["line_item"]["price"]),
@@ -62,44 +54,7 @@ def make_credit_note(refund, setting, sales_invoice):
 		credit_note.insert(ignore_mandatory=True)
 		credit_note.submit()
 
-	if len(refund.get("order_adjustments")) > 0:
-		amount = sum(
-			float(adjustment.get("amount")) + float(adjustment.get("tax_amount")) for adjustment in
-			refund.get("order_adjustments"))
-		debit_note = create_debit_note(sales_invoice, amount, setting)
-		debit_note.insert(ignore_mandatory=True)
-		debit_note.submit()
 	make_payment_entry_against_sales_invoice(sales_invoice, setting)
-
-
-def create_debit_note(sales_invoice, amount, setting):
-	debit_note = create_credit_note(sales_invoice.name, setting)
-	debit_note.is_debit_note = 1
-
-	original_amount = sum(
-		(item.rate * item.qty) for item in debit_note.items) + debit_note.total_taxes_and_charges
-
-	for item in debit_note.items:
-		item_percent = (item.rate * item.qty) / original_amount
-		item.rate = -item_percent * amount
-		item.qty = 0
-
-	for tax in debit_note.taxes:
-		# reduce total value
-		item_wise_tax_detail = json.loads(tax.item_wise_tax_detail)
-
-		for item_code, tax_distribution in item_wise_tax_detail.items():
-			# item_code: [rate, amount]
-			if not tax_distribution[1]:
-				# Ignore 0 values
-				continue
-			return_percent = amount / original_amount
-			tax_distribution[0] *= return_percent
-			tax_distribution[1] *= return_percent
-
-		tax.tax_amount *= amount / original_amount
-		tax.item_wise_tax_detail = json.dumps(item_wise_tax_detail)
-	return debit_note
 
 
 def create_credit_note(invoice_name, setting):
