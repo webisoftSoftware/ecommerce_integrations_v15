@@ -69,18 +69,20 @@ def make_payment_entry_against_sales_invoice(doc, setting, refund_amount=None, p
 	payment_entry = get_payment_entry(doc.doctype, doc.name, bank_account=setting.cash_bank_account)
 	payment_entry.flags.ignore_mandatory = True
 	payment_entry.reference_no = doc.name
-	payment_entry.party_balance = refund_amount or 0.0
-	payment_entry.paid_amount = refund_amount or 0.0
-	payment_entry.payment_type = "Pay"
-	payment_entry.paid_from = "1235 - Shopify Online funds - A"
-	payment_entry.paid_to = "1200 - Accounts receivable - A"
 	payment_entry.posting_date = posting_date or nowdate()
 	payment_entry.reference_date = posting_date or nowdate()
 
-	# If somehow, the sales invoice's outstanding amount is zero, force the payment entry anyway.
-	if payment_entry.paid_amount == 0.0:
-		payment_entry.paid_amount = doc.grand_total
-		payment_entry.received_amount = doc.grand_total
+	if refund_amount:
+		payment_entry.party_balance = refund_amount or 0.0
+		payment_entry.paid_amount = refund_amount or 0.0
+		payment_entry.payment_type = "Pay"
+		payment_entry.paid_from = "1235 - Shopify Online funds - A"
+		payment_entry.paid_to = "1200 - Accounts receivable - A"
+
+		# If somehow, the sales invoice's outstanding amount is zero, force the payment entry anyway.
+		if payment_entry.paid_amount == 0.0:
+			payment_entry.paid_amount = doc.grand_total
+			payment_entry.received_amount = doc.grand_total
 
 	payment_entry.insert(ignore_permissions=True)
 	payment_entry.submit()
