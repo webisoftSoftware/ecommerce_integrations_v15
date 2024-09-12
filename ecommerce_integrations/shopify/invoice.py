@@ -63,7 +63,7 @@ def set_cost_center(items, cost_center):
 		item.cost_center = cost_center
 
 
-def make_payment_entry_against_sales_invoice(doc, setting, refund_amount=None, posting_date=None):
+def make_payment_entry_against_sales_invoice(doc, setting, posting_date=None, refund_amount=None):
 	from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 
 	payment_entry = get_payment_entry(doc.doctype, doc.name, bank_account=setting.cash_bank_account)
