@@ -63,12 +63,17 @@ def set_cost_center(items, cost_center):
 		item.cost_center = cost_center
 
 
-def make_payment_entry_against_sales_invoice(doc, setting, posting_date=None):
+def make_payment_entry_against_sales_invoice(doc, setting, refund_amount=None, posting_date=None):
 	from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 
 	payment_entry = get_payment_entry(doc.doctype, doc.name, bank_account=setting.cash_bank_account)
 	payment_entry.flags.ignore_mandatory = True
 	payment_entry.reference_no = doc.name
+	payment_entry.party_balance = refund_amount or 0.0
+	payment_entry.paid_amount = refund_amount or 0.0
+	payment_entry.payment_type = "Pay"
+	payment_entry.paid_from = "1235 - Shopify Online funds - A"
+	payment_entry.paid_to = "1200 - Accounts receivable - A"
 	payment_entry.posting_date = posting_date or nowdate()
 	payment_entry.reference_date = posting_date or nowdate()
 

@@ -54,7 +54,52 @@ def make_credit_note(refund, setting, sales_invoice):
 		credit_note.insert(ignore_mandatory=True)
 		credit_note.submit()
 
+		# Update sales invoice amounts to prevent creation of payment entry against the whole amount.
+		credit_note.grand_total = -credit_note.grand_total
+		credit_note.base_grand_total = -credit_note.base_grand_total
+		credit_note.base_net_total = -credit_note.base_net_total
+		credit_note.base_total = -credit_note.base_total
+		credit_note.base_total_taxes_and_charges = -credit_note.base_total_taxes_and_charges
+		make_payment_entry_against_sales_invoice(credit_note, setting)
+
+		difference = sales_invoice.outstanding_amount - credit_note.grand_total
+		frappe.db.set_value("Sales Invoice", sales_invoice.name, "outstanding_amount",
+							difference)
+		sales_invoice.set_status(update=True)
+		frappe.db.commit()
+		return
+
 	make_payment_entry_against_sales_invoice(sales_invoice, setting)
+
+
+def create_debit_note(sales_invoice, amount, setting):
+	debit_note = create_credit_note(sales_invoice.name, setting)
+	debit_note.is_debit_note = 1
+
+	original_amount = sum(
+		(item.rate * item.qty) for item in debit_note.items) + debit_note.total_taxes_and_charges
+
+	for item in debit_note.items:
+		item_percent = (item.rate * item.qty) / original_amount
+		item.rate = -item_percent * amount
+		item.qty = 0
+
+	for tax in debit_note.taxes:
+		# reduce total value
+		item_wise_tax_detail = json.loads(tax.item_wise_tax_detail)
+
+		for item_code, tax_distribution in item_wise_tax_detail.items():
+			# item_code: [rate, amount]
+			if not tax_distribution[1]:
+				# Ignore 0 values
+				continue
+			return_percent = amount / original_amount
+			tax_distribution[0] *= return_percent
+			tax_distribution[1] *= return_percent
+
+		tax.tax_amount *= amount / original_amount
+		tax.item_wise_tax_detail = json.dumps(item_wise_tax_detail)
+	return debit_note
 
 
 def create_credit_note(invoice_name, setting):
@@ -84,7 +129,6 @@ def get_sales_invoice(order_id):
 
 def _handle_partial_returns(credit_note, returned_items: List[str], sales_invoice) -> None:
 	""" Remove non-returned item from credit note and update taxes """
-
 	item_code_to_qty_map = defaultdict(float)
 	for item in sales_invoice.items:
 		item_code_to_qty_map[item.item_code] -= item.qty
