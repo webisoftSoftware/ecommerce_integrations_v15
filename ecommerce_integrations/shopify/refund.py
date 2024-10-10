@@ -41,8 +41,15 @@ def make_credit_note(refund, setting, sales_invoice):
 
 		return_items = {}
 		for line in refund.get("refund_line_items"):
-			total_discount: float = float(line.get("line_item").get("discount_allocations")[0].get("amount"))
-			discount_per_item: float = total_discount / int(line.get("quantity"))
+			total_discount = 0.0
+			discount_per_item = 0.0
+			discounts: list = line.get("line_item").get("discount_allocations", [])
+
+			if discounts.__len__() > 0:
+				first_discount: dict = discounts[0]
+				total_discount: float = float(first_discount.get("amount"))
+				discount_per_item: float = total_discount / int(line.get("quantity"))
+
 			return_items[get_item_code(line.get("line_item"))] = {
 				"qty": line.get("quantity"),
 				"price": float(line.get("line_item").get("price")) - total_discount,
