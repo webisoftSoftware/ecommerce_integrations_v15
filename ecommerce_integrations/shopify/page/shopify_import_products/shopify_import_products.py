@@ -96,7 +96,14 @@ def _resync_product(product):
 
 
 def is_synced(product):
-	return ecommerce_item.is_synced(MODULE_NAME, integration_item_code=product.product_id, sku=product.sku)
+	try:
+		item = Product.find(product)
+		if item.sku:
+			return ecommerce_item.is_synced(MODULE_NAME, integration_item_code=product, sku=item.sku)
+
+		return True
+	except Exception:
+		frappe.throw(f"Cannot find Shopify product {product}", frappe.ValidationError)
 
 
 @frappe.whitelist()
@@ -123,7 +130,7 @@ def queue_sync_selected_products(*args, **kwargs):
 			if is_synced(shopify_product):
 				publish(f"Product {product} already synced. Skipping...")
 				continue
-
+			shopify_product.sync_product()
 			publish(f"✅ Synced Product {product}", synced=True)
 
 		except UniqueValidationError as e:
