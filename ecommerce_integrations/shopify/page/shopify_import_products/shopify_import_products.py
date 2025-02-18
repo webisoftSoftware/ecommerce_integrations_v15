@@ -98,7 +98,6 @@ def _resync_product(product):
 		frappe.db.rollback(save_point=savepoint)
 		return False
 
-@frappe.whitelist()
 def is_synced(product_id: str, product_sku: str | None):
 	try:
 		if product_sku:
