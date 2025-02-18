@@ -28,7 +28,11 @@ def fetch_all_products(from_date):
 	products = []
 	for product in collection:
 		d = product.to_dict()
-		d["synced"] = is_synced(product.id)
+		if d["variants"] and d["variants"][0].get("sku"):
+			shopify_product = ShopifyProduct(product.id, sku=d["variants"][0]["sku"])
+			d["synced"] = is_synced(product.id, product_sku=shopify_product.sku)
+		else:
+			d["synced"] = is_synced(product.id, None)
 		products.append(d)
 
 	return {"products": products}
@@ -94,16 +98,16 @@ def _resync_product(product):
 		frappe.db.rollback(save_point=savepoint)
 		return False
 
-
-def is_synced(product):
+@frappe.whitelist()
+def is_synced(product_id: str, product_sku: str | None):
 	try:
-		item = Product.find(product)
-		if item.sku:
-			return ecommerce_item.is_synced(MODULE_NAME, integration_item_code=product, sku=item.sku)
+		if product_sku:
+			return ecommerce_item.is_synced(MODULE_NAME, integration_item_code=product_id, sku=product_sku)
 
-		return True
-	except Exception:
-		frappe.throw(f"Cannot find Shopify product {product}", frappe.ValidationError)
+		return ecommerce_item.is_synced(MODULE_NAME, integration_item_code=product_id)
+	except Exception as e:
+		frappe.log_error(f"Cannot find Shopify product", f"Error : {e}")
+		return False
 
 
 @frappe.whitelist()
@@ -126,10 +130,12 @@ def queue_sync_selected_products(*args, **kwargs):
 		try:
 			publish(f"Syncing product {product}", br=False)
 			frappe.db.savepoint(savepoint)
+
 			shopify_product = ShopifyProduct(product)
-			if is_synced(shopify_product):
+			if is_synced(shopify_product.product_id, shopify_product.sku):
 				publish(f"Product {product} already synced. Skipping...")
 				continue
+
 			shopify_product.sync_product()
 			publish(f"✅ Synced Product {product}", synced=True)
 
