@@ -55,6 +55,10 @@ class ShopifyProduct:
 		if not self.is_synced():
 			shopify_product = Product.find(self.product_id)
 			product_dict = shopify_product.to_dict()
+			if not product_dict.get("sku"):
+				frappe.throw(_(f"Cannot sync item {shopify_product.product_id}: No SKU found for this item! Make sure there is "
+							   "an SKU assigned to this item in Shopify before trying to sync again"),
+							 frappe.ValidationError)
 			self._make_item(product_dict)
 
 	def _make_item(self, product_dict):
