@@ -278,12 +278,6 @@ shopify.ProductImporter = class {
 			this.syncProduct(product)
 				.then(status => {
 
-					if (status.code === 500) {
-						_this.prop('disabled', false).text('Sync');
-						frappe.throw(__(`${status.message}`));
-						return;
-					}
-
 					_this.parents('.dt-row')
 						.find('.indicator-pill')
 						.replaceWith(this.getProductSyncStatus(true));
@@ -293,7 +287,7 @@ shopify.ProductImporter = class {
 				})
 				.catch(ex => {
 					_this.prop('disabled', false).text('Sync');
-					frappe.throw(__(`Error syncing Product: Error: ${ex}`));
+					frappe.throw(__(`${ex}`));
 				});
 
 		});
@@ -306,12 +300,6 @@ shopify.ProductImporter = class {
 			const product = _this.attr('data-product');
 			this.resyncProduct(product)
 				.then(status => {
-
-					if (status.code === 500) {
-						_this.prop('disabled', false).text('Re-sync');
-						frappe.throw(__(`${status.message}`));
-						return;
-					}
 
 					_this.parents('.dt-row')
 						.find('.indicator-pill')
