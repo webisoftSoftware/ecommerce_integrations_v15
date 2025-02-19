@@ -1,7 +1,7 @@
 from time import process_time
 
 import frappe
-from frappe import _
+from frappe import _, ValidationError
 from frappe.exceptions import UniqueValidationError
 from shopify.resources import Product
 
@@ -72,10 +72,15 @@ def sync_product(product):
 		shopify_product = ShopifyProduct(product)
 		shopify_product.sync_product()
 
-		return True
-	except Exception:
-		frappe.db.rollback()
-		return False
+		return {
+			"code": 200,
+		}
+	except Exception as e:
+		frappe.throw(_(f"❌ Error Syncing Product {product} : {str(e)}"), frappe.ValidationError)
+		return {
+			"code": 500,
+			"message": f"❌ Error Syncing Product {product} : {str(e)}"
+		}
 
 
 @frappe.whitelist()
@@ -94,10 +99,16 @@ def _resync_product(product):
 			shopify_product = ShopifyProduct(product, variant_id=variant.id)
 			shopify_product.sync_product()
 
-		return True
-	except Exception:
+		return {
+			"code": 200,
+		}
+	except Exception as e:
 		frappe.db.rollback(save_point=savepoint)
-		return False
+		frappe.throw(_(f"❌ Error Syncing Product {product} : {str(e)}"), frappe.ValidationError)
+		return {
+			"code": 500,
+			"message": f"❌ Error Syncing Product {product} : {str(e)}"
+		}
 
 def is_synced(product_id: str, product_sku: str | None) -> bool:
 	if not product_sku:
@@ -137,6 +148,11 @@ def queue_sync_selected_products(*args, **kwargs):
 
 		except UniqueValidationError as e:
 			publish(f"❌ Error Syncing Product {product} : {str(e)}", error=True)
+			frappe.db.rollback(save_point=savepoint)
+			continue
+
+		except ValidationError as _:
+			publish(f"❌ Error Syncing Product {product} : No SKU found for this item", error=True)
 			frappe.db.rollback(save_point=savepoint)
 			continue
 
