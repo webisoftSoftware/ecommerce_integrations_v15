@@ -70,6 +70,8 @@ def get_shopify_product_count():
 def sync_product(product):
 	try:
 		shopify_product = ShopifyProduct(product)
+		if not shopify_product.sku:
+			raise ValidationError
 		shopify_product.sync_product()
 
 		return {
@@ -97,6 +99,8 @@ def _resync_product(product):
 		frappe.db.savepoint(savepoint)
 		for variant in item.variants:
 			shopify_product = ShopifyProduct(product, variant_id=variant.id)
+			if not shopify_product.sku:
+				raise ValidationError
 			shopify_product.sync_product()
 
 		return {
