@@ -101,9 +101,6 @@ def _resync_product(product):
 
 def is_synced(product_id: str, product_sku: str | None) -> bool:
 	if not product_sku:
-		frappe.throw(_(f"Cannot sync item {product_id}: No SKU found for this item! Make sure there is "
-					   "an SKU assigned to this item in Shopify before trying to sync again"),
-					 frappe.ValidationError)
 		return False
 
 	return ecommerce_item.is_synced(MODULE_NAME, integration_item_code=product_id, sku=product_sku)
@@ -131,6 +128,11 @@ def queue_sync_selected_products(*args, **kwargs):
 			frappe.db.savepoint(savepoint)
 
 			shopify_product = ShopifyProduct(product)
+			if not shopify_product.sku:
+				frappe.throw(_(f"Cannot sync item {shopify_product.product_id}: No SKU found for this item! Make sure there is "
+							   "an SKU assigned to this item in Shopify before trying to sync again"),
+							 frappe.ValidationError)
+
 			if is_synced(shopify_product.product_id, shopify_product.sku):
 				publish(f"Product {product} already synced. Skipping...")
 				continue
