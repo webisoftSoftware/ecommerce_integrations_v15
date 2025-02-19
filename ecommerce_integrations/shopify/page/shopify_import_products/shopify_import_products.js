@@ -290,6 +290,10 @@ shopify.ProductImporter = class {
 
 					_this.replaceWith(`<button type="button" class="btn btn-default btn-xs btn-resync mx-2" data-product="${product}"> Re-sync </button>`);
 
+				})
+				.catch(ex => {
+					_this.prop('disabled', false).text('Sync');
+					frappe.throw(__(`Error syncing Product: Error: ${ex}`));
 				});
 
 		});

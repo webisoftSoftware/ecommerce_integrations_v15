@@ -68,13 +68,9 @@ def get_shopify_product_count():
 
 @frappe.whitelist()
 def sync_product(product):
-	savepoint = "shopify_sync_product"
 	try:
-		frappe.db.savepoint(savepoint)
 		shopify_product = ShopifyProduct(product)
 		if not shopify_product.sku:
-			frappe.db.rollback(save_point=savepoint)
-			frappe.throw(_(f"❌ Error Syncing Product {product} : No SKU found for this item"), frappe.ValidationError)
 			return {
 				"code": 500,
 				"message": f"❌ Error Syncing Product {product} : No SKU found for this item"
@@ -85,7 +81,6 @@ def sync_product(product):
 			"code": 200,
 		}
 	except Exception as e:
-		frappe.throw(_(f"❌ Error Syncing Product {product} : {str(e)}"), frappe.ValidationError)
 		return {
 			"code": 500,
 			"message": f"❌ Error Syncing Product {product} : {str(e)}"
@@ -99,16 +94,12 @@ def resync_product(product):
 
 @temp_shopify_session
 def _resync_product(product):
-	savepoint = "shopify_resync_product"
 	try:
 		item = Product.find(product)
 
-		frappe.db.savepoint(savepoint)
 		for variant in item.variants:
 			shopify_product = ShopifyProduct(product, variant_id=variant.id)
 			if not shopify_product.sku:
-				frappe.db.rollback(save_point=savepoint)
-				frappe.throw(_(f"❌ Error Syncing Product {product} : No SKU found for this item"), frappe.ValidationError)
 				return {
 					"code": 500,
 					"message": f"❌ Error Syncing Product {product} : No SKU found for this item"
@@ -119,8 +110,6 @@ def _resync_product(product):
 			"code": 200,
 		}
 	except Exception as e:
-		frappe.db.rollback(save_point=savepoint)
-		frappe.throw(_(f"❌ Error Syncing Product {product} : {str(e)}"), frappe.ValidationError)
 		return {
 			"code": 500,
 			"message": f"❌ Error Syncing Product {product} : {str(e)}"
