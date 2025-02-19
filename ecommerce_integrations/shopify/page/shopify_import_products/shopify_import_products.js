@@ -291,10 +291,6 @@ shopify.ProductImporter = class {
 					_this.replaceWith(`<button type="button" class="btn btn-default btn-xs btn-resync mx-2" data-product="${product}"> Re-sync </button>`);
 
 				})
-				.catch(ex => {
-					_this.prop('disabled', false).text('Sync');
-					frappe.throw(`${ex}`);
-				});
 
 		});
 
@@ -320,10 +316,6 @@ shopify.ProductImporter = class {
 					_this.prop('disabled', false).text('Re-sync');
 
 				})
-				.catch(ex => {
-					_this.prop('disabled', false).text('Re-sync');
-					frappe.throw(`${ex}`);
-				});
 		});
 
 		// pagination
