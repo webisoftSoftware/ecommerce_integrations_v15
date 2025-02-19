@@ -279,8 +279,8 @@ shopify.ProductImporter = class {
 				.then(status => {
 
 					if (status.code === 500) {
-						frappe.throw(__(`${status.message}`));
 						_this.prop('disabled', false).text('Sync');
+						frappe.throw(__(`${status.message}`));
 						return;
 					}
 
@@ -304,6 +304,7 @@ shopify.ProductImporter = class {
 				.then(status => {
 
 					if (status.code === 500) {
+						_this.prop('disabled', false).text('Re-sync');
 						frappe.throw(__(`${status.message}`));
 						return;
 					}
@@ -317,7 +318,7 @@ shopify.ProductImporter = class {
 				})
 				.catch(ex => {
 					_this.prop('disabled', false).text('Re-sync');
-					frappe.throw(__('Error syncing Product'));
+					frappe.throw(__(`Error syncing Product: Error: ${ex}`));
 				});
 		});
 
