@@ -1,6 +1,7 @@
 from time import process_time
 
 import frappe
+from frappe import _
 from frappe.exceptions import UniqueValidationError
 from shopify.resources import Product
 
@@ -30,7 +31,7 @@ def fetch_all_products(from_date):
 		d = product.to_dict()
 		if d["variants"] and d["variants"][0].get("sku"):
 			shopify_product = ShopifyProduct(product.id, sku=d["variants"][0]["sku"])
-			d["synced"] = is_synced(product.id, product_sku=shopify_product.sku)
+			d["synced"] = is_synced(product.id, shopify_product.sku)
 		else:
 			d["synced"] = is_synced(product.id, None)
 		products.append(d)
@@ -98,15 +99,14 @@ def _resync_product(product):
 		frappe.db.rollback(save_point=savepoint)
 		return False
 
-def is_synced(product_id: str, product_sku: str | None):
-	try:
-		if product_sku:
-			return ecommerce_item.is_synced(MODULE_NAME, integration_item_code=product_id, sku=product_sku)
-
-		return ecommerce_item.is_synced(MODULE_NAME, integration_item_code=product_id)
-	except Exception as e:
-		frappe.log_error(f"Cannot find Shopify product", f"Error : {e}")
+def is_synced(product_id: str, product_sku: str | None) -> bool:
+	if not product_sku:
+		frappe.throw(_(f"Cannot sync item {product_id}: No SKU found for this item! Make sure there is "
+					   "an SKU assigned to this item in Shopify before trying to sync again"),
+					 frappe.ValidationError)
 		return False
+
+	return ecommerce_item.is_synced(MODULE_NAME, integration_item_code=product_id, sku=product_sku)
 
 
 @frappe.whitelist()
