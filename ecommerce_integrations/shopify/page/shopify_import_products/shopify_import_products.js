@@ -278,6 +278,12 @@ shopify.ProductImporter = class {
 			this.syncProduct(product)
 				.then(status => {
 
+					if (status.code === 500) {
+						_this.prop('disabled', false).text('Sync');
+						frappe.throw(__(`${status.message}`));
+						return;
+					}
+
 					_this.parents('.dt-row')
 						.find('.indicator-pill')
 						.replaceWith(this.getProductSyncStatus(true));
