@@ -280,7 +280,7 @@ shopify.ProductImporter = class {
 
 					if (status.code === 500) {
 						_this.prop('disabled', false).text('Sync');
-						frappe.throw(__(`${status.message}`));
+						frappe.throw(`${status.message}`);
 						return;
 					}
 
@@ -309,7 +309,7 @@ shopify.ProductImporter = class {
 
 					if (status.code === 500) {
 						_this.prop('disabled', false).text('Re-sync');
-						frappe.throw(__(`${status.message}`));
+						frappe.throw(`${status.message}`);
 						return;
 					}
 
