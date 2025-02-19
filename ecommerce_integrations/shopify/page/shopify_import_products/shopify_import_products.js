@@ -293,7 +293,7 @@ shopify.ProductImporter = class {
 				})
 				.catch(ex => {
 					_this.prop('disabled', false).text('Sync');
-					frappe.throw(__(`${ex}`));
+					frappe.throw(`${ex}`);
 				});
 
 		});
@@ -307,6 +307,12 @@ shopify.ProductImporter = class {
 			this.resyncProduct(product)
 				.then(status => {
 
+					if (status.code === 500) {
+						_this.prop('disabled', false).text('Re-sync');
+						frappe.throw(__(`${status.message}`));
+						return;
+					}
+
 					_this.parents('.dt-row')
 						.find('.indicator-pill')
 						.replaceWith(this.getProductSyncStatus(true));
@@ -316,7 +322,7 @@ shopify.ProductImporter = class {
 				})
 				.catch(ex => {
 					_this.prop('disabled', false).text('Re-sync');
-					frappe.throw(__(`Error syncing Product: Error: ${ex}`));
+					frappe.throw(`${ex}`);
 				});
 		});
 
