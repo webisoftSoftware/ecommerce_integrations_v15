@@ -142,6 +142,8 @@ def queue_sync_selected_products(*args, **kwargs):
 			if is_synced(shopify_product.product_id, shopify_product.sku):
 				publish(f"Product {product} already synced. Skipping...")
 				continue
+			if not shopify_product.sku:
+				raise ValidationError
 
 			shopify_product.sync_product()
 			publish(f"✅ Synced Product {product}", synced=True)
