@@ -1,7 +1,7 @@
 from time import process_time
 
 import frappe
-from frappe import _, ValidationError
+from frappe import ValidationError
 from frappe.exceptions import UniqueValidationError
 from shopify.resources import Product
 
@@ -23,17 +23,12 @@ def get_shopify_products(from_date):
 
 def fetch_all_products(from_date):
 	# format shopify collection for datatable
-
 	collection = _fetch_products_from_shopify(from_date)
 
 	products = []
 	for product in collection:
 		d = product.to_dict()
-		if d["variants"] and d["variants"][0].get("sku"):
-			shopify_product = ShopifyProduct(product.id, sku=d["variants"][0]["sku"])
-			d["synced"] = is_synced(product.id, shopify_product.sku)
-		else:
-			d["synced"] = is_synced(product.id, None)
+		d["synced"] = is_synced(product.id)
 		products.append(d)
 
 	return {"products": products}
@@ -67,15 +62,18 @@ def get_shopify_product_count():
 
 
 @frappe.whitelist()
+@temp_shopify_session
 def sync_product(product):
 	try:
-		shopify_product = ShopifyProduct(product)
-		if not shopify_product.sku:
+		shopify_product = Product.find(product)
+		shopify_product_dict = shopify_product.to_dict()
+		if shopify_product_dict["variants"].__len__() > 0 and shopify_product_dict["variants"][0].get("sku"):
 			return {
 				"code": 500,
 				"message": f"❌ Error Syncing Product {product} : No SKU found for this item"
 			}
-		shopify_product.sync_product()
+		erp_product = ShopifyProduct(product)
+		erp_product.sync_product()
 
 		return {
 			"code": 200,
@@ -94,32 +92,20 @@ def resync_product(product):
 
 @temp_shopify_session
 def _resync_product(product):
+	return sync_product(product)
+
+@temp_shopify_session
+def is_synced(product_id: str) -> bool:
 	try:
-		item = Product.find(product)
+		shopify_product = Product.find(product_id).to_dict()
+		if not shopify_product["variants"] or shopify_product["variants"].__len__() == 0 or \
+			not shopify_product["variants"][0].get("sku"):
+			return False
 
-		for variant in item.variants:
-			shopify_product = ShopifyProduct(product, variant_id=variant.id)
-			if not shopify_product.sku:
-				return {
-					"code": 500,
-					"message": f"❌ Error Syncing Product {product} : No SKU found for this item"
-				}
-			shopify_product.sync_product()
-
-		return {
-			"code": 200,
-		}
-	except Exception as e:
-		return {
-			"code": 500,
-			"message": f"❌ Error Syncing Product {product} : {str(e)}"
-		}
-
-def is_synced(product_id: str, product_sku: str | None) -> bool:
-	if not product_sku:
-		return False
-
-	return ecommerce_item.is_synced(MODULE_NAME, integration_item_code=product_id, sku=product_sku)
+		return ecommerce_item.is_synced(MODULE_NAME, integration_item_code=product_id,
+										sku=shopify_product["variants"][0].get("sku"))
+	except Exception as _:
+		raise ValidationError
 
 
 @frappe.whitelist()
@@ -131,7 +117,7 @@ def import_selected_products(products: str):
 				   key=REALTIME_KEY)
 
 
-def queue_sync_selected_products(*args, **kwargs):
+def queue_sync_selected_products(*_args, **kwargs):
 	start_time = process_time()
 
 	_sync = True
@@ -143,14 +129,12 @@ def queue_sync_selected_products(*args, **kwargs):
 			publish(f"Syncing product {product}", br=False)
 			frappe.db.savepoint(savepoint)
 
-			shopify_product = ShopifyProduct(product)
-			if is_synced(shopify_product.product_id, shopify_product.sku):
+			if is_synced(product):
 				publish(f"Product {product} already synced. Skipping...")
 				continue
-			if not shopify_product.sku:
-				raise ValidationError
 
-			shopify_product.sync_product()
+			erp_product = ShopifyProduct(product)
+			erp_product.sync_product()
 			publish(f"✅ Synced Product {product}", synced=True)
 
 		except UniqueValidationError as e:
