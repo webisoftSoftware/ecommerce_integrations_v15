@@ -67,7 +67,8 @@ def sync_product(product):
 	try:
 		shopify_product = Product.find(product)
 		shopify_product_dict = shopify_product.to_dict()
-		if shopify_product_dict["variants"].__len__() > 0 and shopify_product_dict["variants"][0].get("sku"):
+		if not shopify_product_dict["variants"] or shopify_product_dict["variants"].__len__() == 0 or \
+			not shopify_product_dict["variants"][0].get("sku"):
 			return {
 				"code": 500,
 				"message": f"❌ Error Syncing Product {product} : No SKU found for this item"
