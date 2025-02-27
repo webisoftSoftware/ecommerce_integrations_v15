@@ -28,14 +28,18 @@ def fetch_all_products(from_date):
 	products = []
 	for product in collection:
 		d = product.to_dict()
-		d["synced"] = is_synced(product.id)
+		if d["variants"].__len__() > 0 and d["variants"][0].get("sku"):
+			d["synced"] = is_synced(product.id, d["variants"][0].get("sku"))
+		else:
+			d["synced"] = is_synced(product.id, None)
+
 		products.append(d)
 
 	return {"products": products}
 
 
 @temp_shopify_session
-def _fetch_products_from_shopify(from_date, limit=50):
+def _fetch_products_from_shopify(from_date, limit=100):
 	return Product.find(created_at_min=from_date, limit=limit)
 
 
@@ -73,7 +77,7 @@ def sync_product(product):
 				"code": 500,
 				"message": f"❌ Error Syncing Product {product} : No SKU found for this item"
 			}
-		erp_product = ShopifyProduct(product)
+		erp_product = ShopifyProduct(shopify_product.id, sku=shopify_product_dict["variants"][0].get("sku"))
 		erp_product.sync_product()
 
 		return {
@@ -95,16 +99,13 @@ def resync_product(product):
 def _resync_product(product):
 	return sync_product(product)
 
-@temp_shopify_session
-def is_synced(product_id: str) -> bool:
+def is_synced(product_id: str, product_sku: str | None) -> bool:
 	try:
-		shopify_product = Product.find(product_id).to_dict()
-		if not shopify_product["variants"] or shopify_product["variants"].__len__() == 0 or \
-			not shopify_product["variants"][0].get("sku"):
-			return False
+		if product_sku:
+			return ecommerce_item.is_synced(MODULE_NAME, integration_item_code=product_sku, sku=product_sku)
 
-		return ecommerce_item.is_synced(MODULE_NAME, integration_item_code=product_id,
-										sku=shopify_product["variants"][0].get("sku"))
+		return ecommerce_item.is_synced(MODULE_NAME, integration_item_code=product_id)
+
 	except Exception as _:
 		raise ValidationError
 
@@ -130,12 +131,11 @@ def queue_sync_selected_products(*_args, **kwargs):
 			publish(f"Syncing product {product}", br=False)
 			frappe.db.savepoint(savepoint)
 
-			if is_synced(product):
+			if is_synced(product, None):
 				publish(f"Product {product} already synced. Skipping...")
 				continue
 
-			erp_product = ShopifyProduct(product)
-			erp_product.sync_product()
+			sync_product(product)
 			publish(f"✅ Synced Product {product}", synced=True)
 
 		except UniqueValidationError as e:

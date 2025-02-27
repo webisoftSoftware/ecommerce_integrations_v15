@@ -84,7 +84,7 @@ shopify.ProductImporter = class {
 		let currentJSDate = new Date();
 
 		// Set to last month.
-		currentJSDate.setMonth(currentJSDate.getMonth() - 1);
+		currentJSDate.setMonth(currentJSDate.getMonth() - 5);
 		let timezoneOffset = currentJSDate.toString().split(" ")[5].slice(3);
 		let currentISODate = currentJSDate.toISOString();
 
