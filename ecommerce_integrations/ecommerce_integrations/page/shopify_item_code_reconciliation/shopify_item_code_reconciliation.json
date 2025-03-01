@@ -4,12 +4,12 @@
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2025-02-27 13:22:27.213103",
+ "modified": "2025-02-27 17:22:54.789065",
  "modified_by": "Administrator",
  "module": "Ecommerce Integrations",
- "name": "shopify-item-code-re",
+ "name": "shopify-item-code-reconciliation",
  "owner": "Administrator",
- "page_name": "shopify-item-code-re",
+ "page_name": "shopify-item-code-reconciliation",
  "roles": [
   {
    "role": "Administrator"
@@ -25,5 +25,5 @@
  "standard": "Yes",
  "style": null,
  "system_page": 0,
- "title": "Shopify Item Code Rename Tool"
+ "title": "Shopify Item Code Reconciliation"
 }
