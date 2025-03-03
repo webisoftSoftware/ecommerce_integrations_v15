@@ -10,11 +10,11 @@ frappe.pages['shopify-item-code-reconciliation'].on_page_load = function (wrappe
 }
 
 let currentJSDate = new Date();
+let testShopifyDatatable;
 
 // Set to last month.
-currentJSDate.setFullYear(currentJSDate.getFullYear() - 2);
-currentJSDate.setMonth(11);
-currentJSDate.setDate(31);
+currentJSDate.setFullYear(currentJSDate.getFullYear() - 3);
+currentJSDate.setMonth(1);
 let timezoneOffset = currentJSDate.toString().split(" ")[5].slice(3);
 let currentISODate = currentJSDate.toISOString();
 
@@ -197,6 +197,8 @@ shopify.ProductImporter = class {
 			minWidth: "20%",
 			fontSize: "1.05rem"
 		});
+
+		testShopifyDatatable = this.shopifyProductTable;
 	}
 
 	async fetchUnreconciledProducts(fromDate, toDate) {
@@ -212,14 +214,15 @@ shopify.ProductImporter = class {
 
 			if (!products.message || products.message.length === 0) return [];
 
-			const shopifyProducts = products.message.map((product) => ({
-				// 'Image': product.image && product.image.src && `<img style="height: 50px" src="${product.image.src}">`,
-				"Created On": product.created_at.replace("T", " ").split(" ")[0],
-				'Item Code': product.id,
-				'Name': product.title,
-				'SKU': product.variants && product.variants.map(a => `${a.sku}`).join(', '),
-				'Action': `<button type="button" class="btn btn-default btn-xs btn-reconcile mx-2" data-product="${product.id}"> Reconcile </button>`,
-			}));
+			const shopifyProducts = products.message
+				.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+				.map((product) => ({
+					"Created On": product.created_at.replace("T", " ").split(" ")[0],
+					'Item Code': product.id,
+					'Name': product.title,
+					'SKU': product.variants && product.variants.map(a => `${a.sku}`).join(', '),
+					'Action': `<button type="button" class="btn btn-default btn-xs btn-reconcile mx-2" data-product="${product.id}"> Reconcile </button>`,
+				}));
 
 			console.log(shopifyProducts);
 			this.productCount = shopifyProducts.length;
@@ -295,7 +298,6 @@ shopify.ProductImporter = class {
 					newData = await this.fetchUnreconciledProducts(shopifyFormattedDate, null);
 				}
 				await this.shopifyProductTable.refresh(newData);
-				await this.shopifyProductTable.sortColumn(1, 'asc');
 			}
 
 			_this.prop('disabled', false).text('Reconcile');
@@ -307,31 +309,59 @@ shopify.ProductImporter = class {
 			const toDate = this.wrapper.find('#to-date').val();
 
 			if (!fromDate && !toDate) {
+				this.shopifyProductTable.freeze();
 				const products = await this.fetchUnreconciledProducts(shopifyFormattedDate, null);
-				this.shopifyProductTable.refresh(products);
-				await this.shopifyProductTable.sortColumn(1, 'asc');
+				await this.shopifyProductTable.refresh(products);
+				this.clearSelection();
+				this.shopifyProductTable.unfreeze();
 				return;
 			}
 
-			// Convert dates to Shopify format
-			let formattedFromDate = '';
-			let formattedToDate = '';
+			let formattedFromDate = null;
+			let formattedToDate = null;
 
 			if (fromDate) {
-				const fromDateObj = new Date(fromDate);
-				formattedFromDate = fromDateObj.toISOString().slice(0, -5) + fromDateObj.toString().split(" ")[5].slice(3);
+				const date = new Date(fromDate);
+				const tzOffset = date.toString().split(" ")[5].slice(3);
+				const ISODate = date.toISOString();
+				formattedFromDate = ISODate.slice(0, -5) + tzOffset;
 			}
 
 			if (toDate) {
-				const toDateObj = new Date(toDate);
-				formattedToDate = toDateObj.toISOString().slice(0, -5) + toDateObj.toString().split(" ")[5].slice(3);
+				const date = new Date(toDate);
+				const tzOffset = date.toString().split(" ")[5].slice(3);
+				const ISODate = date.toISOString();
+				formattedToDate = ISODate.slice(0, -5) + tzOffset;
 			}
 
 			// Fetch and update table
+			console.log("From Date:", formattedFromDate, "To Date:", formattedToDate);
+			this.shopifyProductTable.freeze();
 			const products = await this.fetchUnreconciledProducts(formattedFromDate, formattedToDate);
-			this.shopifyProductTable.refresh(products);
-			await this.shopifyProductTable.sortColumn(1, 'asc');
+			await this.shopifyProductTable.refresh(products);
+			this.clearSelection();
+			this.shopifyProductTable.unfreeze();
 		});
+	}
+
+	clearSelection() {
+		this.selectedRows.clear();
+		this.shopifyProductTable.clearToastMessage();
+		// Clear all states at once
+		for (let index = 0; index < this.productCount; ++index) {
+			const checkbox = $(`.dt-row[data-row-index="${index}"]`)
+				.find('.dt-cell__content--col-0 input[type="checkbox"]');
+
+			if (checkbox) {
+				checkbox.prop("checked", false);
+			}
+		}
+
+		// Uncheck the top header checkbox (fall selecting all).
+		$(`.dt-cell__content--header-0`)
+			.children(":first")
+			.prop("checked", false);
+		this.toggleReconcileSelectedButton();
 	}
 
 	async reconcileProduct(product) {
@@ -352,7 +382,6 @@ shopify.ProductImporter = class {
 		if (this.reconcileRunning) {
 			frappe.msgprint(__('Reconcile already in progress'));
 		} else {
-
 			console.log([...this.selectedRows].map(id => `${id}`).join(", "));
 			frappe.call({
 				method: 'ecommerce_integrations.ecommerce_integrations.page.shopify_item_code_reconciliation.shopify_item_code_reconciliation.reconcile_multiple',
@@ -382,7 +411,6 @@ shopify.ProductImporter = class {
 
 				await this.shopifyProductTable.refresh(newData);
 				console.log(this.shopifyProductTable.getColumns());
-				await this.shopifyProductTable.sortColumn(1, 'asc');
 				$('#btn-reconcile-selected').prop("disabled", false).text("Reconcile Selected Products");
 			})
 			this.logReconcile();
@@ -409,7 +437,6 @@ shopify.ProductImporter = class {
 				this.toggleReconcileSelectedButton();
 				this.reconcileRunning = false;
 			}
-
 		})
 
 	}

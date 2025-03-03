@@ -16,15 +16,17 @@ def get_unreconciled_items(from_date: str, to_date: str | None):
 	"""Get All item in ERP's inventory that do not have the appropriate SKU displayed on Shopify
 		as their item code."""
 	result = []
-	collection = Product.find(created_at_min=from_date, created_at_max=to_date, limit=250)
+	collection = Product.find(from_=None, created_at_min=from_date, created_at_max=to_date, limit=250)
 
-	for product in collection:
-		if product.variants and product.variants[0].sku:
-			filter = {"integration": MODULE_NAME, "integration_item_code": product.id, "erpnext_item_code": product.id}
-			item_needs_reconciliation = bool(frappe.db.exists("Ecommerce Item", filter) or \
-											 frappe.db.exists("Item", product.id))
-			if item_needs_reconciliation:
-				result.append(product.to_dict())
+	while collection.has_next_page():
+		for product in collection:
+			item_needs_reconciliation = bool(frappe.db.exists("Item", product.id))
+			if product.variants and product.variants[0].sku:
+				if item_needs_reconciliation:
+					result.append(product.to_dict())
+		next_url = collection.next_page_url
+		collection = Product.find(from_=next_url)
+
 
 	return result
 
