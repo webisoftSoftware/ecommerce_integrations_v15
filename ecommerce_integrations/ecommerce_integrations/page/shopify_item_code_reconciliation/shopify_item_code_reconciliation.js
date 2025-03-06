@@ -13,7 +13,7 @@ let currentJSDate = new Date();
 let testShopifyDatatable;
 
 // Set to last month.
-currentJSDate.setFullYear(currentJSDate.getFullYear() - 3);
+currentJSDate.setFullYear(currentJSDate.getFullYear() - 2);
 currentJSDate.setMonth(1);
 let timezoneOffset = currentJSDate.toString().split(" ")[5].slice(3);
 let currentISODate = currentJSDate.toISOString();
@@ -246,7 +246,7 @@ shopify.ProductImporter = class {
 			});
 		});
 
-		this.wrapper.on("click", "#btn-reconcile-selected", e => {
+		this.wrapper.on("click", "#btn-reconcile-selected", async e => {
 			// Update all states at once
 			for (let index = 0; index < this.productCount; ++index) {
 				const isChecked = $(`.dt-row[data-row-index="${index}"]`)
@@ -265,14 +265,22 @@ shopify.ProductImporter = class {
 			}
 
 			console.log(this.selectedRows);
-
+			const result = await this.get_required_merge_items();
+			console.debug(result);
 			const _this = $(e.currentTarget);
-			frappe.confirm(__(`Are you sure you want to proceed reconciling these ${this.selectedRows.size} products to their SKU on Shopify? Careful, this action is irreversible! Proceed Anyway?`), async () => {
-				_this.prop("disabled", true).text("Reconciling...");
 
-				await this.reconcileSelected();
-			}, () => {
-			});
+			frappe.confirm(__(`Are you sure you want to proceed reconciling these ${this.selectedRows.size} products to their SKU on Shopify? Careful, this action is irreversible! Proceed Anyway?`), async () => {
+					if (result && result.length > 0) {
+						frappe.confirm(__(`WARNING: ${result.length} detected items needing to be merged. Proceed to merge them anyway? THIS ACTION CANNOT BE UNDONE.`),
+							async () => {
+								_this.prop("disabled", true).text("Reconciling...");
+								await this.reconcileSelected();
+							}, () => {
+							});
+					}
+				},
+				() => {}
+			);
 		});
 
 		// Reconcile a product from table
@@ -342,6 +350,44 @@ shopify.ProductImporter = class {
 			this.clearSelection();
 			this.shopifyProductTable.unfreeze();
 		});
+	}
+
+	async get_required_merge_items() {
+		// Find all the products selected and map them to only have sku and id.
+		const itemsNeedingToMerge = [];
+		for (let index = 0; index < this.productCount; ++index) {
+			const isChecked = $(`.dt-row[data-row-index="${index}"]`)
+				.find('.dt-cell__content--col-0 input[type="checkbox"]')
+				.is(":checked");
+
+			if (isChecked) {
+				const row = $(`.dt-row[data-row-index="${index}"]`);
+				const id = row.find('.dt-cell__content--col-3').prop("innerText");
+				const sku = row.find('.dt-cell__content--col-4').prop("innerText");
+
+				if (id && sku) {
+					itemsNeedingToMerge.push({
+						id: id.toString(),
+						sku: sku.toString()
+					});
+				}
+			}
+		}
+		console.debug("Items needing to be potentially merged:", itemsNeedingToMerge);
+
+		if (itemsNeedingToMerge.length > 0) {
+			try {
+				const response = await frappe.call({
+					method: 'ecommerce_integrations.ecommerce_integrations.page.shopify_item_code_reconciliation.shopify_item_code_reconciliation.get_merge_required_items',
+					args: {
+						shopify_items: JSON.stringify(itemsNeedingToMerge)
+					}
+				});
+				return response.message || [];
+			} catch (error) {
+			}
+		}
+		return [];
 	}
 
 	clearSelection() {

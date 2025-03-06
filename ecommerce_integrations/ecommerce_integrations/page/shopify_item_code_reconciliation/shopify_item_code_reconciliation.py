@@ -32,6 +32,26 @@ def get_unreconciled_items(from_date: str, to_date: str | None):
 
 
 @frappe.whitelist()
+def get_merge_required_items(shopify_items) -> list[str]:
+	shopify_items_list = list(frappe.parse_json(shopify_items))
+	"""Get All items in ERP's inventory that already have an SKU as for the product ID given,
+		requiring a merge to be done. This will attempt to merge all the items having the same SKU
+		and combining them into one. Warning, this can be destructive.
+		@param shopify_items: List of items to merge. These must be unreconciled products from Shopify
+	"""
+	result = []
+
+	for item in shopify_items_list:
+		# Only 'merge' if there's an existing product ID associated with an item and its SKU.
+		item_needs_reconciliation = bool(frappe.db.exists("Item", item.get("id")) and \
+										 bool(frappe.db.exists("Item", item.get("sku"))))
+		if item_needs_reconciliation:
+			result.append(item.get("id"))
+
+	return result
+
+
+@frappe.whitelist(methods=["POST"])
 @temp_shopify_session
 def reconcile(product: str) -> dict:
 	"""Reconcile one Shopify product in ERP's inventory by renaming the item to the
