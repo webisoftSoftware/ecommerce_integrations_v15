@@ -5,23 +5,14 @@ frappe.pages['shopify-item-code-reconciliation'].on_page_load = function (wrappe
 		parent: wrapper, title: 'Shopify Item Code Reconciliation', single_column: true
 	});
 
+	$('.page-title .title-area .title-text').css({
+		'flex': 1,
+		'max-width': '100vw',
+	})
 	new shopify.ProductImporter(wrapper);
-
 }
 
-let currentJSDate = new Date();
 let testShopifyDatatable;
-
-// Set to last month.
-currentJSDate.setFullYear(currentJSDate.getFullYear() - 2);
-currentJSDate.setMonth(1);
-let timezoneOffset = currentJSDate.toString().split(" ")[5].slice(3);
-let currentISODate = currentJSDate.toISOString();
-
-// YYYY-MM-DDTHH:MM:SS[timezone difference]
-// Ex: 2024-08-30T17:28:18-0400
-let shopifyFormattedDate = currentISODate.slice(0, -5) + timezoneOffset;
-console.log(shopifyFormattedDate);
 
 shopify.ProductImporter = class {
 
@@ -33,6 +24,26 @@ shopify.ProductImporter = class {
 		this.selectedRows = new Set();
 		this.reconcileRunning = false;
 		this.productCount = 0;
+
+		let fromDate = new Date();
+		let toDate = new Date();
+
+		// Set to last month.
+		fromDate.setFullYear(fromDate.getFullYear() - 2);
+		fromDate.setMonth(1);
+		let currentISOFromDate = fromDate.toISOString();
+		let currentISOToDate = toDate.toISOString();
+
+		let timezoneOffsetFromDate = fromDate.toString().split(" ")[5].slice(3);
+		let timezoneOffsetToDate = toDate.toString().split(" ")[5].slice(3);
+
+		// YYYY-MM-DDTHH:MM:SS[timezone difference]
+		// Ex: 2024-08-30T17:28:18-0400
+		let shopifyFormattedFromDate = currentISOFromDate.slice(0, -5) + timezoneOffsetFromDate;
+		let shopifyFormattedToDate = currentISOToDate.slice(0, -5) + timezoneOffsetToDate;
+
+		this.from = shopifyFormattedFromDate;
+		this.to = shopifyFormattedToDate;
 	}
 
 	init() {
@@ -53,12 +64,12 @@ shopify.ProductImporter = class {
 	addMarkup() {
 
 		const _markup = $(`
-            <div class="row w-100 d-flex justify-content-center align-items-stretch flex-column overflow: auto m-auto">
-                <div class="col-12 mb-3 gap-2">
-                    <div class="card border-0 shadow-sm p-3 rounded-sm">
-                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center m-auto">
-                            <div class="d-flex flex-column flex-md-row gap-5">
-                                <div class="form-group w-100 w-md-auto mx-2">
+            <div class="row w-100 d-flex justify-content-center align-items-stretch flex-column overflow-auto m-auto">
+                <div class="col-12 mt-2 gap-2">
+                    <div class="border-0 p-1 rounded-sm">
+                        <div class="d-flex flex-column justify-content-between align-items-start m-auto">
+                            <div class="d-flex flex-column flex-sm-row justify-content-sm-center m-auto m-sm-0 gap-5">
+                                <div class="form-group w-100 mx-2">
                                     <label>From Date</label>
                                     <input type="date" class="form-control p-2" id="from-date">
                                 </div>
@@ -91,16 +102,23 @@ shopify.ProductImporter = class {
                 </div>
                 <div class="col-12 d-flex flex-row fill-width align-items-stretch justify-content-center m-auto">
                     <div class="card border-0 shadow-sm p-3 mb-3 rounded-sm">
-                        <h5 class="w-auto border-bottom pb-2">Unreconciled Products in ERPNext</h5>
-                        <div class="d-flex flex-grow fill-width justify-content-center" id="shopify-product-list">
+						<div class="d-flex flex-grow align-center border-bottom pb-2">
+							<h5 class="mr-4">Unreconciled Products in ERPNext</h5>
+							<div class="form-group h-auto ml-auto mr-0">
+								<button disabled type="button" class="btn btn-default btn-sm" id="from-csv">
+									<span>Import CSV</span>
+								</button>
+							</div>
+						</div>
+                        <div class="d-flex flex-grow fill-width align-center justify-content-center" id="shopify-product-list">
                             <div class="text-center">Loading...</div>
                         </div>
-                        <div class="shopify-datatable-footer mt-2 pt-3 pb-2 border-top text-right" style="display: none">
-                            <div class="btn-group">
-                                <button type="button" class="btn btn-sm btn-default btn-paginate btn-prev">Prev</button>
-                                <button type="button" class="btn btn-sm btn-default btn-paginate btn-next">Next</button>
-                            </div>
-                        </div>
+<!--                        <div class="shopify-datatable-footer mt-2 pt-3 pb-2 border-top text-right">-->
+<!--                            <div class="btn-group">-->
+<!--                                <button type="button" class="btn btn-sm btn-default btn-paginate btn-prev">Prev</button>-->
+<!--                                <button type="button" class="btn btn-sm btn-default btn-paginate btn-next">Next</button>-->
+<!--                            </div>-->
+<!--                        </div>-->
                     </div>
                 </div>
             </div>
@@ -173,9 +191,9 @@ shopify.ProductImporter = class {
 			},
 			checkedRowStatus: true,
 			clusterize: true,
-			data: await this.fetchUnreconciledProducts(shopifyFormattedDate, null),
+			data: await this.fetchUnreconciledProducts(this.from, this.to),
 			layout: 'fixed',
-			noDataMessage: "No Items were retrieved",  // Message when there is no data.
+			noDataMessage: "No Items to reconcile",  // Message when there is no data.
 			serialNoColumn: false,
 			checkboxColumn: true,
 			inlineFilters: true,
@@ -204,7 +222,7 @@ shopify.ProductImporter = class {
 	async fetchUnreconciledProducts(fromDate, toDate) {
 
 		try {
-			const products = await frappe.call({
+			const { message: { products } } = await frappe.call({
 				method: 'ecommerce_integrations.ecommerce_integrations.page.shopify_item_code_reconciliation.shopify_item_code_reconciliation.get_unreconciled_items',
 				args: {
 					from_date: fromDate,
@@ -212,9 +230,9 @@ shopify.ProductImporter = class {
 				}
 			});
 
-			if (!products.message || products.message.length === 0) return [];
+			if (!products || products.length === 0) return [];
 
-			const shopifyProducts = products.message
+			const shopifyProducts = products
 				.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 				.map((product) => ({
 					"Created On": product.created_at.replace("T", " ").split(" ")[0],
@@ -225,6 +243,7 @@ shopify.ProductImporter = class {
 				}));
 
 			console.log(shopifyProducts);
+			this.shopifyProducts = shopifyProducts;
 			this.productCount = shopifyProducts.length;
 
 			return shopifyProducts;
@@ -249,15 +268,18 @@ shopify.ProductImporter = class {
 		this.wrapper.on("click", "#btn-reconcile-selected", async e => {
 			// Update all states at once
 			for (let index = 0; index < this.productCount; ++index) {
-				const isChecked = $(`.dt-row[data-row-index="${index}"]`)
-					.find('.dt-cell__content--col-0 input[type="checkbox"]')
-					.is(":checked");
+				const checkbox = $(`.dt-row[data-row-index="${index}"]`)
+					.find('.dt-cell__content--col-0 input[type="checkbox"]');
 
 				const productId = $(`.dt-row[data-row-index="${index}"]`)
 					.find('.dt-cell__content--col-3')
 					.prop("innerText");
 
-				if (productId && isChecked) {
+				if (index >= 50) {
+					checkbox.prop("checked", false);  // Remove checks for items past 60.
+				}
+
+				if (productId && checkbox.is(":checked")) {
 					this.selectedRows.add(productId);
 				} else if (productId) {
 					this.selectedRows.delete(productId);
@@ -301,9 +323,9 @@ shopify.ProductImporter = class {
 
 				if (this.wrapper.find('#from-date').val() !== '') {
 					newData = await this.fetchUnreconciledProducts(this.wrapper.find('#from-date').val(),
-						this.wrapper.find('#to-date').val() !== '' ? this.wrapper.find('#to-date').val() : null);
+						this.wrapper.find('#to-date').val() !== '' ? this.wrapper.find('#to-date').val() : this.to);
 				} else {
-					newData = await this.fetchUnreconciledProducts(shopifyFormattedDate, null);
+					newData = await this.fetchUnreconciledProducts(this.from, this.to);
 				}
 				await this.shopifyProductTable.refresh(newData);
 			}
@@ -318,7 +340,7 @@ shopify.ProductImporter = class {
 
 			if (!fromDate && !toDate) {
 				this.shopifyProductTable.freeze();
-				const products = await this.fetchUnreconciledProducts(shopifyFormattedDate, null);
+				const products = await this.fetchUnreconciledProducts(this.from, this.to);
 				await this.shopifyProductTable.refresh(products);
 				this.clearSelection();
 				this.shopifyProductTable.unfreeze();
@@ -439,9 +461,9 @@ shopify.ProductImporter = class {
 				let newData;
 				if (this.wrapper.find('#from-date').val() !== '') {
 					newData = await this.fetchUnreconciledProducts(this.wrapper.find('#from-date').val(),
-						this.wrapper.find('#to-date').val() !== '' ? this.wrapper.find('#to-date').val() : null);
+						this.wrapper.find('#to-date').val() !== '' ? this.wrapper.find('#to-date').val() : this.to);
 				} else {
-					newData = await this.fetchUnreconciledProducts(shopifyFormattedDate, null);
+					newData = await this.fetchUnreconciledProducts(this.from, this.to);
 				}
 				this.selectedRows.clear();
 
@@ -490,6 +512,7 @@ shopify.ProductImporter = class {
 	toggleReconcileSelectedButton() {
 		const toast = $(".dt-toast__message");
 		if (toast.length === 1) {
+			const numberSelected = Number(toast[0].innerText.slice(0, toast[0].innerText.indexOf(" ")));
 			$("#reconcile-details").css({
 				"visibility": "visible",
 				"display": "flex",
@@ -504,7 +527,7 @@ shopify.ProductImporter = class {
 					"justify-content": "center",
 					"margin": "auto"
 				})
-				.text(`Reconcile Selected Products (${toast[0].innerText.slice(0, toast[0].innerText.indexOf(" "))})`);
+				.text(`Reconcile Selected Products (${numberSelected <= 50 ? numberSelected : '50 [MAX]'})`);
 			return;
 		}
 

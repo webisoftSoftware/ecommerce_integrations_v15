@@ -4,7 +4,6 @@ import frappe
 from shopify.resources import Product
 
 from ecommerce_integrations.shopify.connection import temp_shopify_session
-from ecommerce_integrations.shopify.constants import MODULE_NAME
 
 # constants
 SYNC_JOB_NAME = "shopify.job.reconcile.selected.products"
@@ -16,7 +15,7 @@ def get_unreconciled_items(from_date: str, to_date: str | None):
 	"""Get All item in ERP's inventory that do not have the appropriate SKU displayed on Shopify
 		as their item code."""
 	result = []
-	collection = Product.find(from_=None, created_at_min=from_date, created_at_max=to_date, limit=250)
+	collection = Product.find(created_at_min=from_date, created_at_max=to_date, limit=250)
 
 	while collection.has_next_page():
 		for product in collection:
@@ -27,8 +26,9 @@ def get_unreconciled_items(from_date: str, to_date: str | None):
 		next_url = collection.next_page_url
 		collection = Product.find(from_=next_url)
 
-
-	return result
+	return {
+		"products": result
+	}
 
 
 @frappe.whitelist()
