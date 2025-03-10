@@ -21,8 +21,10 @@ def get_unreconciled_items(from_date: str, to_date: str | None):
 		for product in collection:
 			item_needs_reconciliation = bool(frappe.db.exists("Item", product.id))
 			if product.variants and product.variants[0].sku:
+				requires_merging = bool(frappe.db.exists("Item", product.variants[0].sku))
+
 				if item_needs_reconciliation:
-					result.append(product.to_dict())
+					result.append({"requires_merging": requires_merging, "product": product.to_dict()})
 		next_url = collection.next_page_url
 		collection = Product.find(from_=next_url)
 

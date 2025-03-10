@@ -62,13 +62,12 @@ shopify.ProductImporter = class {
 	}
 
 	addMarkup() {
-
 		const _markup = $(`
             <div class="row w-100 d-flex justify-content-center align-items-stretch flex-column overflow-auto m-auto">
                 <div class="col-12 mt-2 gap-2">
                     <div class="border-0 p-1 rounded-sm">
-                        <div class="d-flex flex-column justify-content-between align-items-start m-auto">
-                            <div class="d-flex flex-column flex-sm-row justify-content-sm-center m-auto m-sm-0 gap-5">
+                        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start m-auto">
+                            <div class="d-flex flex-column flex-sm-row justify-content-sm-center m-auto m-sm-0 gap-5 mb-3 mb-lg-0">
                                 <div class="form-group w-100 mx-2">
                                     <label>From Date</label>
                                     <input type="date" class="form-control p-2" id="from-date">
@@ -101,31 +100,88 @@ shopify.ProductImporter = class {
                     </div>
                 </div>
                 <div class="col-12 d-flex flex-row fill-width align-items-stretch justify-content-center m-auto">
-                    <div class="card border-0 shadow-sm p-3 mb-3 rounded-sm">
-						<div class="d-flex flex-grow align-center border-bottom pb-2">
-							<h5 class="mr-4">Unreconciled Products in ERPNext</h5>
-							<div class="form-group h-auto ml-auto mr-0">
-								<button disabled type="button" class="btn btn-default btn-sm" id="from-csv">
-									<span>Import CSV</span>
-								</button>
-							</div>
-						</div>
+                    <div class="card border-0 shadow-sm p-3 mb-3 rounded-sm w-100">
+                        <div class="d-flex flex-grow align-center border-bottom pb-2">
+                            <h5 class="mr-4">Unreconciled Products in ERPNext</h5>
+                            <div class="form-group h-auto ml-auto mr-0 position-relative">
+                                <button type="button" class="btn btn-default btn-sm" id="toggle-legend">
+                                    <i class="fa fa-question-circle mr-1"></i>
+                                    <span>Show Legend</span>
+                                </button>
+                                <div class="card border-0 shadow-sm p-3 rounded-sm" id="legend-box"
+                                    style="background-color: var(--card-bg);
+                                           min-width: 300px;
+                                           max-width: 450px;
+                                           display: none;
+                                           position: absolute;
+                                           right: 0;
+                                           margin-top: 10px;
+                                           z-index: 100;">
+                                    <h6 class="border-bottom pb-2 font-weight-bold">Legend</h6>
+                                    <div class="mt-2">
+                                        <div class="d-flex align-items-start mb-2">
+                                            <div class="mr-2">
+                                                <i class="fa fa-link text-primary" style="font-size: 1em;"></i>
+                                            </div>
+                                            <div>
+                                                <div class="font-weight-bold mb-1">Reconciling</div>
+                                                <p class="text-muted mb-0" style="font-size: 0.9em;">
+                                                    Links Shopify products with ERPNext items using SKUs for inventory sync.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div class="d-flex align-items-start mb-2">
+                                            <div class="mr-2">
+                                                <i class="fa fa-compress text-warning" style="font-size: 1em;"></i>
+                                            </div>
+                                            <div>
+                                                <div class="font-weight-bold mb-1">Merging <span class="badge badge-warning ml-1" style="font-size: 0.7em;">Requires Attention</span></div>
+                                                <p class="text-muted mb-0" style="font-size: 0.9em;">
+                                                    Combines multiple Shopify products with same SKU.
+                                                    <span class="text-danger">Cannot be undone.</span>
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div class="d-flex align-items-start">
+                                            <div class="mr-2">
+                                                <i class="fa fa-exclamation-circle text-warning" style="font-size: 1em;"></i>
+                                            </div>
+                                            <div>
+                                                <div class="font-weight-bold mb-1">RM</div>
+                                                <p class="text-muted mb-0" style="font-size: 0.9em;">
+                                                    Indicates if an item will require merging (RM) during reconciliation.
+                                                    'Yes' means the SKU already exists as an item code in ERPNext's inventory.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div class="d-flex align-items-start">
+                                            <div class="mr-2">
+                                                <i class="fa fa-mouse-pointer text-info" style="font-size: 1em;"></i>
+                                            </div>
+                                            <div>
+                                                <div class="font-weight-bold mb-1">Quick Navigation</div>
+                                                <p class="text-muted mb-0" style="font-size: 0.9em;">
+                                                    <span class="font-weight-medium">Item Codes:</span> Double-click to search in Item List.<br>
+                                                    <span class="font-weight-medium">SKUs:</span> Click or double-click to search in Item List.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="d-flex flex-grow fill-width align-center justify-content-center" id="shopify-product-list">
                             <div class="text-center">Loading...</div>
                         </div>
-<!--                        <div class="shopify-datatable-footer mt-2 pt-3 pb-2 border-top text-right">-->
-<!--                            <div class="btn-group">-->
-<!--                                <button type="button" class="btn btn-sm btn-default btn-paginate btn-prev">Prev</button>-->
-<!--                                <button type="button" class="btn btn-sm btn-default btn-paginate btn-next">Next</button>-->
-<!--                            </div>-->
-<!--                        </div>-->
                     </div>
                 </div>
             </div>
         `);
 
 		this.wrapper.append(_markup);
-
 	}
 
 	async addTable() {
@@ -151,19 +207,28 @@ shopify.ProductImporter = class {
 				sortable: true,
 				width: 120
 			}, {
+				name: 'RM',
+				align: 'center',
+				editable: false,
+				focusable: true,
+				sortable: true,
+				width: 50
+			}, {
 				name: 'Item Code',
 				align: 'center',
 				editable: false,
 				focusable: true,
 				sortable: true,
-				width: 150
+				width: 150,
+				format: (value) => `<span class="cursor-pointer" title="Double-click to view item in ERPNext">${value}</span>`
 			}, {
 				name: 'SKU',
 				align: "left",
 				editable: false,
 				focusable: true,
 				sortable: false,
-				width: 150
+				width: 150,
+				format: (value) => `<span class="cursor-pointer" title="Double-click to view item in ERPNext">${value}</span>`
 			}, {
 				name: 'Name',
 				align: "left",
@@ -187,6 +252,18 @@ shopify.ProductImporter = class {
 					}
 
 					this_copy.toggleReconcileSelectedButton();
+				},
+				onCellDoubleClick(cell) {
+					const column = cell.column.id;
+					const value = cell.content;
+
+					// Only handle double clicks on Item Code or SKU columns
+					if (column === 3 || column === 4) { // Item Code is column 3, SKU is column 4
+						// Navigate to Item List with filter
+						frappe.set_route('List', 'Item', {
+							'item_code': ['like', `%${value}%`]
+						});
+					}
 				}
 			},
 			checkedRowStatus: true,
@@ -216,6 +293,15 @@ shopify.ProductImporter = class {
 			fontSize: "1.05rem"
 		});
 
+		this.shopifyProductTable.style.setStyle(".dt-cell--header .dt-cell__content", {
+			paddingRight: "5px",
+		});
+
+		// Add cursor pointer style for clickable cells
+		this.shopifyProductTable.style.setStyle('.cursor-pointer', {
+			cursor: 'pointer'
+		});
+
 		testShopifyDatatable = this.shopifyProductTable;
 	}
 
@@ -233,17 +319,17 @@ shopify.ProductImporter = class {
 			if (!products || products.length === 0) return [];
 
 			const shopifyProducts = products
-				.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-				.map((product) => ({
-					"Created On": product.created_at.replace("T", " ").split(" ")[0],
-					'Item Code': product.id,
-					'Name': product.title,
-					'SKU': product.variants && product.variants.map(a => `${a.sku}`).join(', '),
-					'Action': `<button type="button" class="btn btn-default btn-xs btn-reconcile mx-2" data-product="${product.id}"> Reconcile </button>`,
+				.sort((a, b) => new Date(a.product.created_at) - new Date(b.product.created_at))
+				.map((dict) => ({
+					"Created On": dict.product.created_at.replace("T", " ").split(" ")[0],
+					'Item Code': dict.product.id,
+					'Name': dict.product.title,
+					'SKU': dict.product.variants && dict.product.variants.map(a => `${a.sku}`).join(', '),
+					'Action': `<button type="button" class="btn btn-default btn-xs btn-reconcile mx-2" data-product="${dict.product.id}"> Reconcile </button>`,
+					'RM': dict.requires_merging ? 'Yes' : 'No'
 				}));
 
 			console.log(shopifyProducts);
-			this.shopifyProducts = shopifyProducts;
 			this.productCount = shopifyProducts.length;
 
 			return shopifyProducts;
@@ -272,7 +358,7 @@ shopify.ProductImporter = class {
 					.find('.dt-cell__content--col-0 input[type="checkbox"]');
 
 				const productId = $(`.dt-row[data-row-index="${index}"]`)
-					.find('.dt-cell__content--col-3')
+					.find('.dt-cell__content--col-4')
 					.prop("innerText");
 
 				if (index >= 50) {
@@ -350,11 +436,22 @@ shopify.ProductImporter = class {
 			let formattedFromDate = null;
 			let formattedToDate = null;
 
+			console.debug(fromDate);
+			if (fromDate && fromDate.split("-")[0].length !== 4) {
+				frappe.throw(__("Incorrect From Date Format"));
+				return;
+			}
+
 			if (fromDate) {
 				const date = new Date(fromDate);
 				const tzOffset = date.toString().split(" ")[5].slice(3);
 				const ISODate = date.toISOString();
 				formattedFromDate = ISODate.slice(0, -5) + tzOffset;
+			}
+
+			if (toDate && toDate.split("-")[0].length !== 4) {
+				frappe.throw(__("Incorrect To Date Format"));
+				return;
 			}
 
 			if (toDate) {
@@ -372,6 +469,33 @@ shopify.ProductImporter = class {
 			this.clearSelection();
 			this.shopifyProductTable.unfreeze();
 		});
+
+		// Add legend toggle handler
+		this.wrapper.on('click', '#toggle-legend', function(e) {
+			e.stopPropagation(); // Prevent clicks from bubbling up
+			const $button = $(this);
+			const $legendBox = $('#legend-box');
+			const isVisible = $legendBox.is(':visible');
+
+			$legendBox.slideToggle(200); // Animate the show/hide
+
+			// Update button text
+			$button.html(
+				isVisible ?
+				'<i class="fa fa-question-circle mr-1"></i><span>Show Legend</span>' :
+				'<i class="fa fa-question-circle mr-1"></i><span>Hide Legend</span>'
+			);
+		});
+
+		// Add double-click handler for Item Code and SKU columns
+		this.wrapper.on('dblclick', '.dt-cell__content--col-4, .dt-cell__content--col-5', function() {
+			const value = $(this).text().trim();
+			if (value) {
+				frappe.set_route('List', 'Item', {
+					'item_code': ['like', `%${value}%`]
+				});
+			}
+		});
 	}
 
 	async get_required_merge_items() {
@@ -384,8 +508,8 @@ shopify.ProductImporter = class {
 
 			if (isChecked) {
 				const row = $(`.dt-row[data-row-index="${index}"]`);
-				const id = row.find('.dt-cell__content--col-3').prop("innerText");
-				const sku = row.find('.dt-cell__content--col-4').prop("innerText");
+				const id = row.find('.dt-cell__content--col-4').prop("innerText");
+				const sku = row.find('.dt-cell__content--col-5').prop("innerText");
 
 				if (id && sku) {
 					itemsNeedingToMerge.push({
