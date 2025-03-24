@@ -120,14 +120,14 @@ class ShopifyProduct:
 		item_dict = {
 			"variant_of": variant_of,
 			"is_stock_item": 1,
-			"item_code": product_dict.get("sku") or _get_sku(product_dict) or cstr(product_dict.get("id")),
+			"item_code": _get_sku(product_dict),
 			"item_name": product_dict.get("title", "").strip(),
 			"description": product_dict.get("body_html") or product_dict.get("title"),
 			"item_group": self._get_item_group(product_dict.get("product_type")),
 			"has_variants": has_variant,
 			"attributes": attributes or [],
 			"stock_uom": product_dict.get("uom") or _("Nos"),
-			"sku": product_dict.get("sku") or _get_sku(product_dict),
+			"sku": _get_sku(product_dict),
 			"default_warehouse": warehouse,
 			"image": _get_item_image(product_dict),
 			"weight_uom": WEIGHT_TO_ERPNEXT_UOM_MAP[product_dict.get("weight_unit")],
@@ -135,7 +135,7 @@ class ShopifyProduct:
 			"default_supplier": self._get_supplier(product_dict),
 		}
 
-		integration_item_code = product_dict.get("sku") or _get_sku(product_dict) or cstr(product_dict.get("id"))  # shopify product_id
+		integration_item_code = _get_sku(product_dict)  # shopify SKU as ID
 		variant_id = product_dict.get("variant_id", "")  # shopify variant_id if has variants
 		sku = item_dict["sku"]
 
@@ -254,7 +254,7 @@ def _has_variants(product_dict) -> bool:
 def _get_sku(product_dict):
 	if product_dict.get("variants"):
 		return product_dict.get("variants")[0].get("sku")
-	return ""
+	raise frappe.DoesNotExistError(_(f"No SKU found for item {product_dict.get("id")}"))
 
 
 def _get_item_image(product_dict):
@@ -315,7 +315,7 @@ def get_item_code(shopify_item):
 
 	item = ecommerce_item.get_erpnext_item(
 		integration=MODULE_NAME,
-		integration_item_code=shopify_item.get("product_id"),
+		integration_item_code=shopify_item.get("sku"),
 		variant_id=shopify_item.get("variant_id"),
 		sku=shopify_item.get("sku"),
 	)
