@@ -254,7 +254,8 @@ def _has_variants(product_dict) -> bool:
 def _get_sku(product_dict):
 	if product_dict.get("variants"):
 		return product_dict.get("variants")[0].get("sku")
-	raise frappe.DoesNotExistError(_(f"No SKU found for item {product_dict.get("id")}"))
+	id = product_dict.get("id")
+	raise frappe.DoesNotExistError(_(f"No SKU found for item {id}"))
 
 
 def _get_item_image(product_dict):
