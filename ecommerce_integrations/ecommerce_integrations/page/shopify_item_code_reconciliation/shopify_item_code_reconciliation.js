@@ -52,7 +52,7 @@ shopify.ProductImporter = class {
 
 	async checkReconcileStatus() {
 		const jobs = await frappe.db.get_list("RQ Job", {filters: {"status": ("in", ["queued", "started"])}});
-		const job = jobs.find(job => job.job_name === 'shopify.job.reconcile.selected_products');
+		const job = jobs.find(job => job.job_name === 'shopify.job.reconcile.selected.products');
 
 		this.reconcileRunning = job !== undefined && (job.status === "queued" || job.status === "started");
 
@@ -354,10 +354,10 @@ shopify.ProductImporter = class {
 		this.wrapper.on("click", "#btn-reconcile-selected", async e => {
 			// Update all states at once
 			for (let index = 0; index < this.productCount; ++index) {
-				const checkbox = $(`.dt-row[data-row-index="${index}"]`)
-					.find('.dt-cell__content--col-0 input[type="checkbox"]');
+				const row = $(`.dt-row[data-row-index="${index}"]`);
+				const checkbox = row.find('.dt-cell__content--col-0 input[type="checkbox"]');
 
-				const productId = $(`.dt-row[data-row-index="${index}"]`)
+				const productId = row
 					.find('.dt-cell__content--col-4')
 					.prop("innerText");
 
@@ -502,12 +502,12 @@ shopify.ProductImporter = class {
 		// Find all the products selected and map them to only have sku and id.
 		const itemsNeedingToMerge = [];
 		for (let index = 0; index < this.productCount; ++index) {
-			const isChecked = $(`.dt-row[data-row-index="${index}"]`)
+			const row = $(`.dt-row[data-row-index="${index}"]`);
+			const isChecked = row
 				.find('.dt-cell__content--col-0 input[type="checkbox"]')
 				.is(":checked");
 
 			if (isChecked) {
-				const row = $(`.dt-row[data-row-index="${index}"]`);
 				const id = row.find('.dt-cell__content--col-4').prop("innerText");
 				const sku = row.find('.dt-cell__content--col-5').prop("innerText");
 
@@ -562,6 +562,9 @@ shopify.ProductImporter = class {
 			method: 'ecommerce_integrations.ecommerce_integrations.page.shopify_item_code_reconciliation.shopify_item_code_reconciliation.reconcile',
 			args: {product: product},
 		});
+		if (status.code !== 200) {
+			frappe.throw(__(`Cannot reconcile product ${product}: ${JSON.stringify(status.message)}`));
+		}
 
 		return status;
 
@@ -635,16 +638,18 @@ shopify.ProductImporter = class {
 
 	toggleReconcileSelectedButton() {
 		const toast = $(".dt-toast__message");
+		const reconcileDetailsElement = $("#reconcile-details");
+		const reconcileSelectedElement = $("#btn-reconcile-selected");
 		if (toast.length === 1) {
 			const numberSelected = Number(toast[0].innerText.slice(0, toast[0].innerText.indexOf(" ")));
-			$("#reconcile-details").css({
+			reconcileDetailsElement.css({
 				"visibility": "visible",
 				"display": "flex",
 				"justify-content": "center",
 				"align-items": "stretch",
 				"margin": "auto"
 			});
-			$("#btn-reconcile-selected")
+			reconcileSelectedElement
 				.css({
 					"visibility": "visible",
 					"display": "flex",
@@ -655,11 +660,10 @@ shopify.ProductImporter = class {
 			return;
 		}
 
-		$("#reconcile-details").css({
+		reconcileDetailsElement.css({
 			"display": "none"
 		});
-		$("#btn-reconcile-selected")
-			.css({
+		reconcileSelectedElement.css({
 				"display": "none",
 			});
 	}
