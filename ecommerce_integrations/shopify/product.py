@@ -252,9 +252,9 @@ def _has_variants(product_dict) -> bool:
 
 
 def _get_sku(product_dict):
-	if product_dict.get("variants"):
-		return product_dict.get("variants")[0].get("sku")
-	id = product_dict.get("id")
+	if product_dict.get("sku") is not None:
+		return product_dict.get("sku")
+	id = product_dict.get("product_id")
 	raise frappe.DoesNotExistError(_(f"No SKU found for item {id}"))
 
 
