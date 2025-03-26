@@ -22,14 +22,13 @@ def get_unreconciled_items(from_date: str, to_date: str | None):
 		for product in collection:
 			is_id_disabled = frappe.db.get_value("Item", product.id, "disabled")
 			item_needs_reconciliation = is_id_disabled is not None and not is_id_disabled
-			requires_merging = False
 
 			if item_needs_reconciliation and product.variants and product.variants[0].sku:
 				is_sku_present = frappe.db.exists("Item", product.variants[0].sku)
 				requires_merging = is_sku_present is not None and is_sku_present
 
-			if item_needs_reconciliation:
 				result.append({"requires_merging": requires_merging, "product": product.to_dict()})
+
 		next_url = collection.next_page_url
 		collection = Product.find(from_=next_url)
 
