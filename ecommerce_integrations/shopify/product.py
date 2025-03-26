@@ -316,7 +316,7 @@ def get_item_code(shopify_item):
 
 	item = ecommerce_item.get_erpnext_item(
 		integration=MODULE_NAME,
-		integration_item_code=shopify_item.get("sku"),
+		integration_item_code=shopify_item.get("sku") or shopify_item["product_id"],
 		variant_id=shopify_item.get("variant_id"),
 		sku=shopify_item.get("sku"),
 	)
