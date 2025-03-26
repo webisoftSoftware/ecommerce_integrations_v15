@@ -331,8 +331,13 @@ def reconcile_multiple(comma_delimited_products: str) -> dict:
 				erp_item = frappe.get_doc("Item", shopify_product.id)
 
 				if bool(frappe.db.exists("Item", shopify_product.variants[0].sku)):
-					erp_item.name = rename_doc(doc=erp_item, new=shopify_product.variants[0].sku, merge=True,
-											   force=False, validate=True, show_alert=False)
+					# Get all items that match either the SKU or the Shopify ID
+					items_to_update = frappe.get_list("Item",
+													  filters=[
+														  ["name", "in", [shopify_product.variants[0].sku, shopify_product.id]]
+													  ],
+													  order_by="modified desc")
+					merge(items_to_update, shopify_product.variants[0].sku)
 				else:
 					erp_item.name = rename_doc(doc=erp_item, new=shopify_product.variants[0].sku, merge=False,
 											   force=False, validate=True, show_alert=False)
