@@ -385,6 +385,9 @@ shopify.ProductImporter = class {
 								await this.reconcileSelected();
 							}, () => {
 							});
+					} else if (result && result.length === 0) {
+						_this.prop("disabled", true).text("Reconciling...");
+						await this.reconcileSelected();
 					}
 				},
 				() => {}
@@ -607,6 +610,11 @@ shopify.ProductImporter = class {
 				await this.shopifyProductTable.refresh(newData);
 				console.log(this.shopifyProductTable.getColumns());
 				$('#btn-reconcile-selected').prop("disabled", false).text("Reconcile Selected Products");
+				const _log = $('#shopify-reconcile-log');
+				if (!_log.textContent.includes("Error")) {
+					_log.text(''); // clear logs
+					_log.parents('.card').hide();
+				}
 			})
 			this.logReconcile();
 		}
