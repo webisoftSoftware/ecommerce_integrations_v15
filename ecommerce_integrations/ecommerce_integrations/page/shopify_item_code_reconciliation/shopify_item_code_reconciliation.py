@@ -25,8 +25,8 @@ def get_unreconciled_items(from_date: str, to_date: str | None):
 			requires_merging = False
 
 			if item_needs_reconciliation and product.variants and product.variants[0].sku:
-				is_sku_disabled = frappe.db.get_value("Item", product.variants[0].sku, "disabled")
-				requires_merging = is_sku_disabled is not None and not is_sku_disabled
+				is_sku_present = frappe.db.exists("Item", product.variants[0].sku)
+				requires_merging = is_sku_present is not None and not is_sku_present
 
 			if item_needs_reconciliation:
 				result.append({"requires_merging": requires_merging, "product": product.to_dict()})
