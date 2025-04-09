@@ -301,7 +301,7 @@ def create_items_if_not_exist(order):
 	"""Using shopify order, sync all items that are not already synced."""
 	for item in order.get("line_items", []):
 
-		product_id = item["product_id"]
+		product_id = item["sku"]
 		variant_id = item.get("variant_id")
 		sku = item.get("sku")
 		product = ShopifyProduct(product_id, variant_id=variant_id, sku=sku)
