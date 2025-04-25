@@ -38,7 +38,7 @@ class ShopifyProduct:
 
 	def is_synced(self) -> bool:
 		return ecommerce_item.is_synced(
-			MODULE_NAME, integration_item_code=self.product_id, variant_id=self.variant_id, sku=self.sku,
+			MODULE_NAME, integration_item_code=self.sku, variant_id=self.variant_id, sku=self.sku,
 		)
 
 	def get_erpnext_item(self):
@@ -301,7 +301,7 @@ def create_items_if_not_exist(order):
 	"""Using shopify order, sync all items that are not already synced."""
 	for item in order.get("line_items", []):
 
-		product_id = item["sku"]
+		product_id = item["product_id"]
 		variant_id = item.get("variant_id")
 		sku = item.get("sku")
 		product = ShopifyProduct(product_id, variant_id=variant_id, sku=sku)
