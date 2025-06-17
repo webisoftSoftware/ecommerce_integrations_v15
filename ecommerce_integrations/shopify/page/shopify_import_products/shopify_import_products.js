@@ -84,7 +84,7 @@ shopify.ProductImporter = class {
 		let currentJSDate = new Date();
 
 		// Set to last month.
-		currentJSDate.setMonth(currentJSDate.getMonth() - 1);
+		currentJSDate.setMonth(currentJSDate.getMonth() - 5);
 		let timezoneOffset = currentJSDate.toString().split(" ")[5].slice(3);
 		let currentISODate = currentJSDate.toISOString();
 
@@ -191,7 +191,7 @@ shopify.ProductImporter = class {
 
 			return shopifyProducts;
 		} catch (error) {
-			frappe.throw(__('Error fetching products.'));
+			frappe.throw(__(`Error fetching products: ${error}`));
 		}
 
 	}
@@ -278,9 +278,9 @@ shopify.ProductImporter = class {
 			this.syncProduct(product)
 				.then(status => {
 
-					if (!status) {
-						frappe.throw(__('Error syncing product'));
+					if (status.code === 500) {
 						_this.prop('disabled', false).text('Sync');
+						frappe.throw(`${status.message}`);
 						return;
 					}
 
@@ -290,7 +290,7 @@ shopify.ProductImporter = class {
 
 					_this.replaceWith(`<button type="button" class="btn btn-default btn-xs btn-resync mx-2" data-product="${product}"> Re-sync </button>`);
 
-				});
+				})
 
 		});
 
@@ -303,8 +303,9 @@ shopify.ProductImporter = class {
 			this.resyncProduct(product)
 				.then(status => {
 
-					if (!status) {
-						frappe.throw(__('Error syncing product'));
+					if (status.code === 500) {
+						_this.prop('disabled', false).text('Re-sync');
+						frappe.throw(`${status.message}`);
 						return;
 					}
 
@@ -315,10 +316,6 @@ shopify.ProductImporter = class {
 					_this.prop('disabled', false).text('Re-sync');
 
 				})
-				.catch(ex => {
-					_this.prop('disabled', false).text('Re-sync');
-					frappe.throw(__('Error syncing Product'));
-				});
 		});
 
 		// pagination

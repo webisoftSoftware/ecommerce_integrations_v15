@@ -66,7 +66,7 @@ def is_synced(
 	        integration: shopify,
 	        integration_item_code: TSHIRT
 	"""
-	filter = {"integration": integration, "integration_item_code": integration_item_code}
+	filter = {"integration": integration, "integration_item_code": sku}
 
 	if variant_id:
 		filter.update({"variant_id": variant_id})
