@@ -57,6 +57,10 @@ class ShopifyCustomer(EcommerceCustomer):
 		billing_address = customer.get("billing_address", {}) or customer.get("default_address")
 		shipping_address = customer.get("shipping_address", {})
 
+		match billing_address:
+			case "CA": billing_address = "Canada"
+			case "US": billing_address = "United States"
+
 		customer_name = cstr(customer.get("first_name")) + " " + cstr(customer.get("last_name"))
 		email = customer.get("email")
 
@@ -111,6 +115,11 @@ class ShopifyCustomer(EcommerceCustomer):
 
 def _map_address_fields(shopify_address, customer_name, address_type, email):
 	""" returns dict with shopify address fields mapped to equivalent ERPNext fields"""
+	sanitized_country = shopify_address.get("country")
+	match sanitized_country:
+		case "CA": sanitized_country = "Canada"
+		case "US": sanitized_country = "United States"
+
 	address_fields = {
 		"address_title": customer_name,
 		"address_type": address_type,
@@ -120,7 +129,7 @@ def _map_address_fields(shopify_address, customer_name, address_type, email):
 		"city": shopify_address.get("city"),
 		"state": shopify_address.get("province"),
 		"pincode": shopify_address.get("zip"),
-		"country": shopify_address.get("country"),
+		"country": sanitized_country,
 		"email_id": email,
 	}
 
