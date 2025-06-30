@@ -304,8 +304,9 @@ def create_items_if_not_exist(order):
 		product_id = item["product_id"]
 		variant_id = item.get("variant_id")
 		sku = item.get("sku")
+		if not sku:
+			frappe.throw(_("Cannot create item without an sku!"))
 		product = ShopifyProduct(product_id, variant_id=variant_id, sku=sku)
-
 		if not product.is_synced():
 			product.sync_product()
 
