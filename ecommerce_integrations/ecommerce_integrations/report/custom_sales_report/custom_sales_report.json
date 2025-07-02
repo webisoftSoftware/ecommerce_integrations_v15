@@ -64,7 +64,7 @@
  "module": "Ecommerce Integrations",
  "name": "Custom Sales Report",
  "owner": "Administrator",
- "prepared_report": 0,
+ "prepared_report": 1,
  "ref_doctype": "GL Entry",
  "reference_report": "",
  "report_name": "Custom Sales Report",
