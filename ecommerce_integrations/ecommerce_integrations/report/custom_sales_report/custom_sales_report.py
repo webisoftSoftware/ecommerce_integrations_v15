@@ -120,7 +120,7 @@ def get_data(filters):
 		payment_entry_data = get_payment_entry_data(filters)
 		data.extend(payment_entry_data)
 
-		# If specific document type is selected, get only that type
+	# If specific document type is selected, get only that type
 	elif document_type == "Sales Invoice":
 		invoice_data = get_sales_invoice_data(filters)
 		data.extend(invoice_data)
@@ -257,9 +257,9 @@ def get_conditions(filters, doctype):
 	if filters.get("from_date") and filters.get("to_date"):
 		conditions += f" AND {prefix}.posting_date BETWEEN %(from_date)s AND %(to_date)s"
 	elif filters.get("from_date"):
-		conditions += f" AND {prefix}.created >= %(from_date)s"
+		conditions += f" AND {prefix}.posting_date >= %(from_date)s"
 	elif filters.get("to_date"):
-		conditions += f" AND {prefix}.created <= %(to_date)s"
+		conditions += f" AND {prefix}.posting_date <= %(to_date)s"
 
 	if filters.get("party"):
 		conditions += f" AND {prefix}.customer = %(party)s"
