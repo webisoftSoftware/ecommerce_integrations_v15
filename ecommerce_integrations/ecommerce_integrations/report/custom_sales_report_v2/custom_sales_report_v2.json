@@ -86,12 +86,12 @@
   "modified": "2025-07-02 17:15:00.474721",
   "modified_by": "Administrator",
   "module": "Ecommerce Integrations",
-  "name": "Custom Sales Report",
+  "name": "Custom Sales Report V2",
   "owner": "Administrator",
-  "prepared_report": 0,
+  "prepared_report": 1,
   "ref_doctype": "GL Entry",
   "reference_report": "",
-  "report_name": "Custom Sales Report",
+  "report_name": "Custom Sales Report V2",
   "report_type": "Script Report",
   "roles": [
     {
