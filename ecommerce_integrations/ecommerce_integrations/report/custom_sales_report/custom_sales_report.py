@@ -64,6 +64,20 @@ def get_columns():
 			"width": 70
 		},
 		{
+			"label": _("Paid To"),
+			"fieldname": "paid_to",
+			"fieldtype": "Link",
+			"options": "Account",
+			"width": 70
+		},
+		{
+			"label": _("Paid From"),
+			"fieldname": "paid_from",
+			"fieldtype": "Link",
+			"options": "Account",
+			"width": 70
+		},
+		{
 			"label": _("Sales Parts & Service Pool"),
 			"fieldname": "account_4320",
 			"fieldtype": "Currency",
@@ -223,8 +237,8 @@ def get_payment_entry_data(filters):
 			pe.party as party,
 			'' as item_code,
 			'' as item_name,
-			pe.paid_to as income_account,
-			pe.paid_from as expense_account,
+			pe.paid_to as paid_to,
+			pe.paid_from as paid_from,
 			0 as account_4320,
 			0 as account_4322,
 			0 as account_5001,
@@ -261,24 +275,34 @@ def get_conditions(filters, doctype):
 	elif filters.get("to_date"):
 		conditions += f" AND {prefix}.posting_date <= %(to_date)s"
 
-	if filters.get("party"):
+	if filters.get("party") and doctype == "Payment Entry":
+		conditions += " AND pe.party = %(party)s"
+
+	if filters.get("party") and doctype != "Payment Entry":
 		conditions += f" AND {prefix}.customer = %(party)s"
 
-	if filters.get("item"):
-		item_table = f"{prefix}_item"
-		conditions += f" AND {item_table}.item_code = %(item)s"
+	if filters.get("item") and doctype == "Sales Invoice":
+		conditions += " AND sii.item_code = %(item)s"
 
-	if filters.get("account"):
-		item_table = f"{prefix}_item"
-		conditions += f" AND ({item_table}.income_account = %(account)s OR {item_table}.expense_account = %(account)s)"
+	if filters.get("item") and doctype == "Delivery Note":
+		conditions += " AND dni.item_code = %(item)s"
+
+	if filters.get("income_account") and doctype == "Sales Invoice":
+		conditions += " AND sii.income_account = %(income_account)s"
+
+	if filters.get("expense_account") and doctype == "Sales Invoice":
+		conditions += " AND sii.expense_account = %(expense_account)s"
+
+	if filters.get("expense_account") and doctype == "Delivery Note":
+		conditions += " AND dni.expense_account = %(expense_account)s"
 
 	if filters.get("invoice") and doctype == "Sales Invoice":
 		conditions += " AND si.name = %(invoice)s"
 
-	if filters.get("party") and doctype == "Payment Entry":
-		conditions += " AND pe.party = %(party)s"
+	if filters.get("paid_to") and doctype == "Payment Entry":
+		conditions += " AND pe.paid_to = %(paid_to)s"
 
-	if filters.get("account") and doctype == "Payment Entry":
-		conditions += " AND (pe.paid_to = %(account)s OR pe.paid_from = %(account)s)"
+	if filters.get("paid_from") and doctype == "Payment Entry":
+		conditions += " AND pe.paid_from = %(paid_from)s"
 
 	return conditions
