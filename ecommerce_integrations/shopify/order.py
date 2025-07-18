@@ -197,7 +197,8 @@ def _get_total_discount(line_item) -> float:
 def get_order_taxes(shopify_order, setting, items):
 	taxes = []
 	line_items = shopify_order.get("line_items")
-	province_code = shopify_order.get("billing_address").get("province_code", "MB")
+	province_code = shopify_order.get("billing_address").get("province_code", "MB") if shopify_order.get("billing_address") is not None else \
+			"MB"
 
 	for line_item in line_items:
 		item_code = get_item_code(line_item)
