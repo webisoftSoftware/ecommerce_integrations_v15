@@ -155,42 +155,69 @@ def get_sales_invoice_data(filters):
 	conditions = get_conditions(filters, "Sales Invoice")
 
 	query = f"""
-		SELECT
-			'Sales Invoice' as document_type,
-			si.name as document_no,
-			si.posting_date,
-			si.customer as party,
-			sii.item_code,
-			sii.income_account,
-			sii.expense_account,
-			CASE
-				WHEN sii.income_account LIKE '4320 - Sales - Parts & service - Pool service - A' THEN sii.base_net_amount
-				ELSE 0
-			END as account_4320,
-			CASE
-				WHEN sii.income_account LIKE '4322 - Sales - Parts & service - Spa service - A' THEN sii.base_net_amount
-				ELSE 0
-			END as account_4322,
-			CASE
-				WHEN sii.expense_account LIKE '5001 - Cost of Goods Sold - A' THEN sii.base_net_amount
-				ELSE 0
-			END as account_5001,
-			sii.qty,
-			sii.base_rate as rate,
-			sii.base_net_amount as amount
-		FROM
-			`tabSales Invoice` si
-		INNER JOIN
-			`tabSales Invoice Item` sii ON si.name = sii.parent
-		WHERE
-			si.docstatus = 1
-			{conditions}
-		ORDER BY
-			si.posting_date DESC, si.name
-	"""
+        SELECT
+            'Sales Invoice' as document_type,
+            si.name as document_no,
+            si.posting_date,
+            si.customer as party,
+            sii.item_code,
+            sii.income_account,
+            sii.expense_account,
+            CASE
+                WHEN sii.income_account LIKE '4320 - Sales - Parts & service - Pool service - A' THEN sii.base_net_amount
+                ELSE 0
+            END as account_4320,
+            CASE
+                WHEN sii.income_account LIKE '4322 - Sales - Parts & service - Spa service - A' THEN sii.base_net_amount
+                ELSE 0
+            END as account_4322,
+            CASE
+                WHEN sii.expense_account LIKE '5001 - Cost of Goods Sold - A' THEN COALESCE(pii.base_net_amount, 0)
+                ELSE 0
+            END as account_5001,
+            sii.qty,
+            sii.base_rate as rate,
+            sii.base_net_amount as amount
+        FROM
+            `tabSales Invoice` si
+        INNER JOIN
+            `tabSales Invoice Item` sii ON si.name = sii.parent
+        LEFT JOIN
+            (
+                SELECT
+                    pii.item_code,
+                    pii.base_net_amount,
+                    pii.parent,
+                    pi.posting_date
+                FROM
+                    `tabPurchase Invoice Item` pii
+                INNER JOIN
+                    `tabPurchase Invoice` pi ON pii.parent = pi.name
+                WHERE
+                    pi.docstatus = 1
+                AND
+                    (pii.item_code, pi.posting_date) IN (
+                        SELECT
+                            item_code,
+                            MAX(pi2.posting_date) as max_posting_date
+                        FROM
+                            `tabPurchase Invoice Item` pii2
+                        INNER JOIN
+                            `tabPurchase Invoice` pi2 ON pii2.parent = pi2.name
+                        WHERE
+                            pi2.docstatus = 1
+                        GROUP BY
+                            pii2.item_code
+                    )
+            ) pii ON sii.item_code = pii.item_code
+        WHERE
+            si.docstatus = 1
+            {conditions}
+        ORDER BY
+            si.posting_date DESC
+    """
 
 	return frappe.db.sql(query, filters, as_dict=1)
-
 
 def get_delivery_note_data(filters):
 	"""Get Delivery Note data with item details"""
