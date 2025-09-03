@@ -47,8 +47,8 @@ def make_credit_note(refund, setting, sales_invoice):
 
 			if discounts.__len__() > 0:
 				first_discount: dict = discounts[0]
-				total_discount: float = float(first_discount.get("amount"))
-				discount_per_item: float = total_discount / int(line.get("quantity"))
+				total_discount: float = float(first_discount.get("amount", 0.0))
+				discount_per_item: float = total_discount / int(line.get("quantity", 1.0))
 
 			return_items[get_item_code(line.get("line_item"))] = {
 				"qty": line.get("quantity"),
@@ -95,7 +95,7 @@ def create_debit_note(sales_invoice, amount, setting):
 		# reduce total value
 		item_wise_tax_detail = json.loads(tax.item_wise_tax_detail)
 
-		for item_code, tax_distribution in item_wise_tax_detail.items():
+		for _, tax_distribution in item_wise_tax_detail.items():
 			# item_code: [rate, amount]
 			if not tax_distribution[1]:
 				# Ignore 0 values
@@ -120,8 +120,12 @@ def create_credit_note(invoice_name, setting):
 	for tax in credit_note.taxes:
 		tax.item_wise_tax_detail = json.loads(tax.item_wise_tax_detail)
 		for item, tax_distribution in tax.item_wise_tax_detail.items():
-			tax_distribution[1] *= -1
-			tax_distribution[0] *= -1
+			# Do not invert if the amount is already negative.
+			if tax_distribution[1] > 0.00:
+				tax_distribution[1] *= -1
+
+			if tax_distribution[0] > 0.00:
+				tax_distribution[0] *= -1
 		tax.item_wise_tax_detail = json.dumps(tax.item_wise_tax_detail)
 
 	return credit_note
@@ -159,14 +163,10 @@ def _handle_partial_returns(credit_note, returned_items: dict, sales_invoice) ->
 		new_tax_amt = 0.0
 
 		for item_code, tax_distribution in item_wise_tax_detail.items():
-			# item_code: [rate, amount]
-			if not tax_distribution[0]:
-				# Ignore 0 values
-				continue
 			return_percent = returned_qty_map.get(item_code, 0.0) / item_code_to_qty_map.get(
-				item_code)
+				item_code, 1.0)
 			tax_distribution[1] *= return_percent
 			new_tax_amt += tax_distribution[1]
 
-		tax.tax_amount = new_tax_amt
+		tax.tax_amount = tax.tax_amount if new_tax_amt == 0.0 else new_tax_amt
 		tax.item_wise_tax_detail = json.dumps(item_wise_tax_detail)
