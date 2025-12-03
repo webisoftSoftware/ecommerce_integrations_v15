@@ -53,7 +53,7 @@ class ShopifyProduct:
 	@temp_shopify_session
 	def sync_product(self):
 		if not self.is_synced():
-			shopify_product = Product.find(str(self.product_id))
+			shopify_product = Product.find(self.product_id)
 			product_dict = shopify_product.to_dict()
 			self._make_item(product_dict)
 
@@ -255,8 +255,8 @@ def _get_sku(product_dict):
 	if product_dict.get("variants") and product_dict.get("variants")[0].get("sku") and \
 		product_dict.get("variants")[0].get("sku") != "":
 		return product_dict.get("variants")[0].get("sku")
-	id = product_dict.get("id")
-	raise frappe.DoesNotExistError(_(f"No SKU found for item {id}"))
+	name = product_dict.get("name")
+	raise frappe.DoesNotExistError(_(f"No SKU found for item {name}"))
 
 
 def _get_item_image(product_dict):
@@ -304,9 +304,8 @@ def create_items_if_not_exist(order):
 		product_id = item["product_id"]
 		variant_id = item.get("variant_id")
 		sku = item.get("sku")
-		if not sku:
-			frappe.throw(_("Cannot create item without an sku!"))
 		product = ShopifyProduct(product_id, variant_id=variant_id, sku=sku)
+
 		if not product.is_synced():
 			product.sync_product()
 
