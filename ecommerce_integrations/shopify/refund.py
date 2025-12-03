@@ -161,12 +161,17 @@ def _handle_partial_returns(credit_note, returned_items: dict, sales_invoice) ->
 		# reduce total value
 		item_wise_tax_detail = json.loads(tax.item_wise_tax_detail)
 		new_tax_amt = 0.0
+		filtered_tax_detail = {}
 
 		for item_code, tax_distribution in item_wise_tax_detail.items():
+			if item_code not in returned_items:
+				tax.tax_amount = 0.0
+				continue
 			return_percent = returned_qty_map.get(item_code, 0.0) / item_code_to_qty_map.get(
 				item_code, 1.0)
 			tax_distribution[1] *= return_percent
 			new_tax_amt += tax_distribution[1]
+			filtered_tax_detail[item_code] = tax_distribution
 
-		tax.tax_amount = tax.tax_amount if new_tax_amt == 0.0 else new_tax_amt
-		tax.item_wise_tax_detail = json.dumps(item_wise_tax_detail)
+		tax.tax_amount = new_tax_amt
+		tax.item_wise_tax_detail = json.dumps(filtered_tax_detail)
